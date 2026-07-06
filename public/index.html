@@ -29,25 +29,27 @@
   #toolbar {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 10px 16px;
+    gap: 8px;
+    padding: 8px 12px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     user-select: none;
     -webkit-user-select: none;
   }
   .group {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px;
+    gap: 3px;
+    padding: 3px;
     background: var(--panel-2);
     border-radius: 10px;
+    flex: none;
   }
   .tool-btn {
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
     border: none;
     border-radius: 8px;
     background: transparent;
@@ -60,11 +62,11 @@
   }
   .tool-btn:hover { background: #404656; }
   .tool-btn.active { background: var(--accent); color: #fff; }
-  .tool-btn svg { width: 20px; height: 20px; }
+  .tool-btn svg { width: 18px; height: 18px; }
 
   .swatch {
-    width: 26px;
-    height: 26px;
+    width: 21px;
+    height: 21px;
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
@@ -82,8 +84,8 @@
     background: transparent;
     color: var(--text);
     cursor: pointer;
-    width: 38px;
-    height: 38px;
+    width: 28px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -98,12 +100,14 @@
     background: transparent;
     color: var(--text);
     cursor: pointer;
-    height: 38px;
-    padding: 0 12px;
+    height: 32px;
+    padding: 0 9px;
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 13px;
+    white-space: nowrap;
+    flex: none;
   }
   .action-btn:hover { background: #404656; }
   .action-btn:disabled { opacity: .35; cursor: default; }
@@ -124,28 +128,39 @@
     padding: 1px 5px;
   }
   .spacer { flex: 1; }
-  #autoPasteLabel, #handDrawnLabel {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 13px;
+  .toggle-btn {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel-2);
     color: var(--muted);
     cursor: pointer;
+    height: 38px;
+    padding: 0 9px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    white-space: nowrap;
+    flex: none;
   }
-  #autoPasteLabel:hover, #handDrawnLabel:hover { color: var(--text); }
-  #autoPasteLabel input, #handDrawnLabel input {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--accent);
-    cursor: pointer;
+  .toggle-btn:hover { background: #404656; color: var(--text); }
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
   }
+  .toggle-btn svg { width: 16px; height: 16px; }
   #brand {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
     letter-spacing: .3px;
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: none;
+  }
+  @media (max-width: 1240px) {
+    #brand .brand-text { display: none; }
   }
   #brand .logo {
     width: 22px; height: 22px;
@@ -226,7 +241,7 @@
 <body>
 
 <div id="toolbar">
-  <div id="brand"><div class="logo"></div>Andrew's Markup</div>
+  <div id="brand"><div class="logo"></div><span class="brand-text">Andrew's Markup</span></div>
 
   <div class="group" id="tools">
     <button class="tool-btn active" data-tool="pen" title="Pen (P)">
@@ -250,11 +265,16 @@
 
   <div class="group" id="sizes">
     <button class="size-btn" data-size="S" title="Thin"><span class="dot" style="width:4px;height:4px"></span></button>
-    <button class="size-btn active" data-size="M" title="Medium"><span class="dot" style="width:8px;height:8px"></span></button>
-    <button class="size-btn" data-size="L" title="Thick"><span class="dot" style="width:13px;height:13px"></span></button>
-    <button class="size-btn" data-size="XL" title="Extra thick"><span class="dot" style="width:19px;height:19px"></span></button>
-    <button class="size-btn" data-size="XXL" title="Huge"><span class="dot" style="width:26px;height:26px"></span></button>
+    <button class="size-btn active" data-size="M" title="Medium"><span class="dot" style="width:7px;height:7px"></span></button>
+    <button class="size-btn" data-size="L" title="Thick"><span class="dot" style="width:10px;height:10px"></span></button>
+    <button class="size-btn" data-size="XL" title="Extra thick"><span class="dot" style="width:14px;height:14px"></span></button>
+    <button class="size-btn" data-size="XXL" title="Huge"><span class="dot" style="width:19px;height:19px"></span></button>
   </div>
+
+  <button class="toggle-btn" id="handDrawnBtn" title="Render arrows, boxes &amp; ovals with a sketchy, hand-drawn look">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c2.5-5.5 4.5-5.5 6.5 0s4 5.5 6.5 0 4-5 7-2"/></svg>
+    Hand-drawn
+  </button>
 
   <div class="group">
     <button class="action-btn" id="undoBtn" title="Undo (⌘Z)" disabled>
@@ -268,15 +288,12 @@
     </button>
   </div>
 
-  <label id="handDrawnLabel" title="Render arrows, boxes & ovals with a sketchy, hand-drawn look">
-    <input type="checkbox" id="handDrawnCb"> Hand-drawn
-  </label>
-
   <div class="spacer"></div>
 
-  <label id="autoPasteLabel" title="When checked, the clipboard image is pasted automatically when the page loads">
-    <input type="checkbox" id="autoPasteCb"> Auto paste
-  </label>
+  <button class="toggle-btn" id="autoPasteBtn" title="Load the clipboard image automatically when you open or return to the page">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    Auto paste
+  </button>
 
   <button class="action-btn" id="copyBtn" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -678,20 +695,24 @@
   }
 
   // ---------- Hand-drawn toggle ----------
-  const handDrawnCb = document.getElementById('handDrawnCb');
-  handDrawnCb.checked = handDrawn;
-  handDrawnCb.addEventListener('change', () => {
-    handDrawn = handDrawnCb.checked;
+  const handDrawnBtn = document.getElementById('handDrawnBtn');
+  handDrawnBtn.classList.toggle('active', handDrawn);
+  handDrawnBtn.addEventListener('click', () => {
+    handDrawn = !handDrawn;
+    handDrawnBtn.classList.toggle('active', handDrawn);
     localStorage.setItem('handDrawn', handDrawn ? '1' : '0');
     redrawBase();
   });
 
   // ---------- Auto paste ----------
-  const autoPasteCb = document.getElementById('autoPasteCb');
-  autoPasteCb.checked = localStorage.getItem('autoPaste') === '1';
-  autoPasteCb.addEventListener('change', () => {
-    localStorage.setItem('autoPaste', autoPasteCb.checked ? '1' : '0');
-    if (autoPasteCb.checked) tryAutoPaste();
+  const autoPasteBtn = document.getElementById('autoPasteBtn');
+  let autoPaste = localStorage.getItem('autoPaste') === '1';
+  autoPasteBtn.classList.toggle('active', autoPaste);
+  autoPasteBtn.addEventListener('click', () => {
+    autoPaste = !autoPaste;
+    autoPasteBtn.classList.toggle('active', autoPaste);
+    localStorage.setItem('autoPaste', autoPaste ? '1' : '0');
+    if (autoPaste) tryAutoPaste();
   });
 
   async function tryAutoPaste() {
@@ -710,12 +731,10 @@
     }
   }
 
-  if (autoPasteCb.checked) {
-    if (document.hasFocus()) tryAutoPaste();
-  }
+  if (autoPaste && document.hasFocus()) tryAutoPaste();
   // Also fire when returning to an empty tab (e.g. right after taking a screenshot)
   window.addEventListener('focus', () => {
-    if (autoPasteCb.checked && !img) tryAutoPaste();
+    if (autoPaste && !img) tryAutoPaste();
   });
 
   // ---------- Keyboard shortcuts ----------
