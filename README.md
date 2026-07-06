@@ -7,7 +7,7 @@ A single-page markup tool: paste a screenshot, annotate it, and copy the result 
 ## Features
 
 - Paste (⌘V), drag & drop, or auto-paste an image to start
-- Pen, highlighter, arrow, box, and oval tools with keyboard shortcuts (P/H/A/R/O)
+- Pen, highlighter, arrow, Skitch-style tapered arrow, box, and oval tools with keyboard shortcuts (P/H/A/S/R/O)
 - 8 colors, 5 stroke sizes (S–XXL)
 - **Hand-drawn mode** — renders arrows, boxes & ovals with a sketchy, wobbly look; toggling restyles everything already drawn (in the gear menu)
 - **Auto paste** — loads the clipboard image automatically when you open or return to the tab (in the gear menu)

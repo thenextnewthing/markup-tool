@@ -279,6 +279,9 @@
     <button class="tool-btn" data-tool="arrow" title="Arrow (A)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>
     </button>
+    <button class="tool-btn" data-tool="sarrow" title="Skitch arrow (S)">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4.5 20.5 L15.6 10.9 L17.5 12.8 L20 4 L11.2 6.5 L13.1 8.4 L3.5 19.5 Z"/></svg>
+    </button>
     <button class="tool-btn" data-tool="rect" title="Box (R)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
     </button>
@@ -540,40 +543,70 @@
 
   function roughness(s) { return Math.max(2, Math.min(7, s.lw * 0.55)); }
 
-  // Thick strokes get one pass (two smear into a blob); thin ones get the classic double-stroke
+  // Two diverging strokes: a main one plus a lighter, thinner "retrace" —
+  // the sketch texture comes from them not agreeing. Thick strokes get one
+  // pass (two smear into a blob).
   function sketchPasses(ctx, s, draw) {
     const passes = s.lw > 12 ? 1 : 2;
-    ctx.lineWidth = passes === 1 ? s.lw * 0.9 : Math.max(1, s.lw * 0.7);
     const rng = mulberry32(s.seed || 1);
     const r = roughness(s);
     for (let p = 0; p < passes; p++) {
       ctx.beginPath();
+      ctx.globalAlpha = p === 0 ? 1 : 0.5;
+      ctx.lineWidth = p === 0 ? s.lw * (passes === 1 ? 0.95 : 0.8) : Math.max(1, s.lw * 0.55);
       draw(rng, r);
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
   }
 
+  // A hand stroke isn't jittery — it bows in one smooth curve, overshoots
+  // its endpoints a little, and doesn't hit them exactly.
   function sketchLine(ctx, rng, x0, y0, x1, y1, r) {
-    const segs = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 60));
-    ctx.moveTo(x0 + (rng() - .5) * r, y0 + (rng() - .5) * r);
-    for (let i = 1; i <= segs; i++) {
-      const t = i / segs, tm = (i - .5) / segs;
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    const px = -uy, py = ux;
+    const ov = () => rng() * r * 1.4;
+    const jit = k => (rng() - .5) * r * k;
+    const sx = x0 - ux * ov() + px * jit(.8), sy = y0 - uy * ov() + py * jit(.8);
+    const ex = x1 + ux * ov() + px * jit(.8), ey = y1 + uy * ov() + py * jit(.8);
+    const bow = (rng() - .5) * 2 * Math.min(len * .05, r * 2.5);
+    ctx.moveTo(sx, sy);
+    if (len < 110) {
       ctx.quadraticCurveTo(
-        x0 + (x1 - x0) * tm + (rng() - .5) * r * 2.2,
-        y0 + (y1 - y0) * tm + (rng() - .5) * r * 2.2,
-        x0 + (x1 - x0) * t + (rng() - .5) * r,
-        y0 + (y1 - y0) * t + (rng() - .5) * r);
+        (sx + ex) / 2 + px * (bow + jit(.7)), (sy + ey) / 2 + py * (bow + jit(.7)),
+        ex, ey);
+    } else {
+      // long stroke: two joined curves so it doesn't read as one clean arc
+      const t1 = .4 + rng() * .2;
+      const mx = sx + (ex - sx) * t1 + px * (bow + jit(1));
+      const my = sy + (ey - sy) * t1 + py * (bow + jit(1));
+      ctx.quadraticCurveTo(
+        sx + (ex - sx) * t1 / 2 + px * (bow * .6 + jit(.8)),
+        sy + (ey - sy) * t1 / 2 + py * (bow * .6 + jit(.8)), mx, my);
+      ctx.quadraticCurveTo(
+        sx + (ex - sx) * (1 + t1) / 2 + px * (bow * .8 + jit(.8)),
+        sy + (ey - sy) * (1 + t1) / 2 + py * (bow * .8 + jit(.8)), ex, ey);
     }
   }
 
+  // Hand-drawn ellipse: smooth low-frequency squash instead of per-point
+  // jitter, drawn slightly past a full turn with the radius drifting so the
+  // ends overlap without lining up.
   function sketchEllipse(ctx, rng, cx, cy, rx, ry, r) {
-    const steps = Math.max(10, Math.round((rx + ry) / 14));
+    const steps = Math.max(14, Math.round((rx + ry) / 10));
     const start = rng() * Math.PI * 2;
+    const total = Math.PI * 2 + .3 + rng() * .5;
+    const p1 = rng() * Math.PI * 2, p2 = rng() * Math.PI * 2;
+    const amp = Math.min(r * 1.3, Math.min(rx, ry) * .12 + 1);
+    const drift = (rng() < .5 ? -1 : 1) * r * 1.5;
     const pts = [];
     for (let i = 0; i <= steps; i++) {
-      const a = start + (i / steps) * Math.PI * 2;
-      pts.push([cx + Math.cos(a) * (rx + (rng() - .5) * r * 1.6),
-                cy + Math.sin(a) * (ry + (rng() - .5) * r * 1.6)]);
+      const a = start + (i / steps) * total;
+      const dr = amp * Math.sin(a * 2 + p1) + amp * .6 * Math.sin(a * 3 + p2)
+               + (rng() - .5) * r * .4 + (i / steps) * drift;
+      pts.push([cx + Math.cos(a) * (rx + dr), cy + Math.sin(a) * (ry + dr)]);
     }
     ctx.moveTo(pts[0][0], pts[0][1]);
     for (let i = 1; i < pts.length - 1; i++) {
@@ -639,6 +672,52 @@
         ctx.moveTo(x1, y1);
         ctx.lineTo(x1 - head * Math.cos(angle - Math.PI / 6.5), y1 - head * Math.sin(angle - Math.PI / 6.5));
         ctx.lineTo(x1 - head * Math.cos(angle + Math.PI / 6.5), y1 - head * Math.sin(angle + Math.PI / 6.5));
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
+      case 'sarrow': {
+        // Skitch-style arrow: filled shape, thin at the tail, widening into
+        // a big solid triangular head
+        const { x0, y0, x1, y1 } = s;
+        const dx = x1 - x0, dy = y1 - y0;
+        const len = Math.hypot(dx, dy);
+        if (len < 2) break;
+        const ux = dx / len, uy = dy / len;
+        const px = -uy, py = ux;
+        const headLen = Math.min(len * .45, Math.max(18, s.lw * 4.5));
+        const headW = Math.max(16, s.lw * 4);
+        const baseW = Math.max(5, s.lw * 1.6);
+        const tailW = Math.max(1.5, s.lw * .45);
+        const bx = x1 - ux * headLen, by = y1 - uy * headLen;
+        const pts = [
+          [x0 + px * tailW / 2, y0 + py * tailW / 2],
+          [bx + px * baseW / 2, by + py * baseW / 2],
+          [bx + px * headW / 2, by + py * headW / 2],
+          [x1, y1],
+          [bx - px * headW / 2, by - py * headW / 2],
+          [bx - px * baseW / 2, by - py * baseW / 2],
+          [x0 - px * tailW / 2, y0 - py * tailW / 2],
+        ];
+        ctx.beginPath();
+        if (handDrawn) {
+          const rng = mulberry32(s.seed || 1);
+          // roughness follows the head size so big arrows visibly sketch
+          const r = Math.max(2.5, Math.min(8, headW * .15, len * .05));
+          const j = pts.map(p => [p[0] + (rng() - .5) * r * 1.4, p[1] + (rng() - .5) * r * 1.4]);
+          ctx.moveTo(j[0][0], j[0][1]);
+          for (let i = 1; i <= j.length; i++) {
+            const a = j[i - 1], b = j[i % j.length];
+            const k = Math.min(Math.hypot(b[0] - a[0], b[1] - a[1]) * .08, r * 1.6);
+            ctx.quadraticCurveTo(
+              (a[0] + b[0]) / 2 + (rng() - .5) * 2 * k,
+              (a[1] + b[1]) / 2 + (rng() - .5) * 2 * k,
+              b[0], b[1]);
+          }
+        } else {
+          ctx.moveTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        }
         ctx.closePath();
         ctx.fill();
         break;
@@ -793,6 +872,7 @@
       case 'KeyP': setTool('pen'); break;
       case 'KeyH': setTool('highlighter'); break;
       case 'KeyA': setTool('arrow'); break;
+      case 'KeyS': setTool('sarrow'); break;
       case 'KeyR': setTool('rect'); break;
       case 'KeyO': setTool('oval'); break;
     }
