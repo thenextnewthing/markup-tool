@@ -128,28 +128,41 @@
     padding: 1px 5px;
   }
   .spacer { flex: 1; }
-  .toggle-btn {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--panel-2);
-    color: var(--muted);
-    cursor: pointer;
-    height: 38px;
-    padding: 0 9px;
+  .cb-option {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 12.5px;
+    color: var(--muted);
+    cursor: pointer;
     white-space: nowrap;
     flex: none;
   }
-  .toggle-btn:hover { background: #404656; color: var(--text); }
-  .toggle-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+  .cb-option:hover { color: var(--text); }
+  .cb-option input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex: none;
   }
-  .toggle-btn svg { width: 16px; height: 16px; }
+
+  /* ---------- Tooltip ---------- */
+  #tip {
+    position: fixed;
+    display: none;
+    background: #11131a;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 11px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    max-width: 270px;
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 6px 24px rgba(0,0,0,.45);
+  }
   #brand {
     font-weight: 700;
     font-size: 14px;
@@ -271,10 +284,9 @@
     <button class="size-btn" data-size="XXL" title="Huge"><span class="dot" style="width:19px;height:19px"></span></button>
   </div>
 
-  <button class="toggle-btn" id="handDrawnBtn" title="Render arrows, boxes &amp; ovals with a sketchy, hand-drawn look">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c2.5-5.5 4.5-5.5 6.5 0s4 5.5 6.5 0 4-5 7-2"/></svg>
-    Hand-drawn
-  </button>
+  <label class="cb-option" data-tip="Gives arrows, boxes &amp; ovals a wobbly, sketched-by-hand look instead of perfect geometry. Checking or unchecking it also restyles everything already drawn on the image.">
+    <input type="checkbox" id="handDrawnCb"> Hand-drawn
+  </label>
 
   <div class="group">
     <button class="action-btn" id="undoBtn" title="Undo (⌘Z)" disabled>
@@ -290,10 +302,9 @@
 
   <div class="spacer"></div>
 
-  <button class="toggle-btn" id="autoPasteBtn" title="Load the clipboard image automatically when you open or return to the page">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-    Auto paste
-  </button>
+  <label class="cb-option" data-tip="Automatically loads the image from your clipboard the moment you open or switch back to this tab — take a screenshot, come here, and it's already on the canvas. No need to press ⌘V.">
+    <input type="checkbox" id="autoPasteCb"> Auto paste
+  </label>
 
   <button class="action-btn" id="copyBtn" disabled>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -695,24 +706,38 @@
   }
 
   // ---------- Hand-drawn toggle ----------
-  const handDrawnBtn = document.getElementById('handDrawnBtn');
-  handDrawnBtn.classList.toggle('active', handDrawn);
-  handDrawnBtn.addEventListener('click', () => {
-    handDrawn = !handDrawn;
-    handDrawnBtn.classList.toggle('active', handDrawn);
+  const handDrawnCb = document.getElementById('handDrawnCb');
+  handDrawnCb.checked = handDrawn;
+  handDrawnCb.addEventListener('change', () => {
+    handDrawn = handDrawnCb.checked;
     localStorage.setItem('handDrawn', handDrawn ? '1' : '0');
     redrawBase();
   });
 
   // ---------- Auto paste ----------
-  const autoPasteBtn = document.getElementById('autoPasteBtn');
+  const autoPasteCb = document.getElementById('autoPasteCb');
   let autoPaste = localStorage.getItem('autoPaste') === '1';
-  autoPasteBtn.classList.toggle('active', autoPaste);
-  autoPasteBtn.addEventListener('click', () => {
-    autoPaste = !autoPaste;
-    autoPasteBtn.classList.toggle('active', autoPaste);
+  autoPasteCb.checked = autoPaste;
+  autoPasteCb.addEventListener('change', () => {
+    autoPaste = autoPasteCb.checked;
     localStorage.setItem('autoPaste', autoPaste ? '1' : '0');
     if (autoPaste) tryAutoPaste();
+  });
+
+  // ---------- Tooltips ----------
+  const tip = document.createElement('div');
+  tip.id = 'tip';
+  document.body.appendChild(tip);
+  document.querySelectorAll('[data-tip]').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      tip.textContent = el.dataset.tip;
+      tip.style.display = 'block';
+      const r = el.getBoundingClientRect();
+      tip.style.top = (r.bottom + 8) + 'px';
+      const left = r.left + r.width / 2 - tip.offsetWidth / 2;
+      tip.style.left = Math.max(8, Math.min(left, innerWidth - tip.offsetWidth - 8)) + 'px';
+    });
+    el.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   });
 
   async function tryAutoPaste() {
