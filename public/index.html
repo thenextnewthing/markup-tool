@@ -252,6 +252,8 @@
     <button class="size-btn" data-size="S" title="Thin"><span class="dot" style="width:4px;height:4px"></span></button>
     <button class="size-btn active" data-size="M" title="Medium"><span class="dot" style="width:8px;height:8px"></span></button>
     <button class="size-btn" data-size="L" title="Thick"><span class="dot" style="width:13px;height:13px"></span></button>
+    <button class="size-btn" data-size="XL" title="Extra thick"><span class="dot" style="width:19px;height:19px"></span></button>
+    <button class="size-btn" data-size="XXL" title="Huge"><span class="dot" style="width:26px;height:26px"></span></button>
   </div>
 
   <div class="group">
@@ -302,7 +304,7 @@
 
   // ---------- State ----------
   const COLORS = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#111111', '#ffffff'];
-  const SIZES = { S: 2.5, M: 5, L: 10 };
+  const SIZES = { S: 2.5, M: 5, L: 10, XL: 18, XXL: 30 };
 
   let img = null;            // HTMLImageElement / ImageBitmap of the pasted image
   let shapes = [];           // committed shapes
