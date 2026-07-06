@@ -286,9 +286,6 @@
   </div>
 
   <div class="group" id="tools">
-    <button class="tool-btn" data-tool="select" title="Select (V) — click an object, drag to move it, Delete or the red ✕ removes it">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l7 17 2.5-7 7-2.5z"/></svg>
-    </button>
     <button class="tool-btn active" data-tool="pen" title="Pen (P)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
     </button>
@@ -371,7 +368,7 @@
     </div>
     <div class="big">Paste a screenshot to start &nbsp;<span class="kbd">⌘V</span></div>
     <p>Annotate with pen, highlighter, arrows, boxes, ovals &amp; text.<br>
-    The select tool (V) moves or deletes anything you've drawn.<br>
+    Click anything you've drawn to grab it — drag to move, ✕ or Delete removes it.<br>
     Then hit <span class="kbd">⇧⌘C</span> to copy the result to your clipboard.<br>
     You can also drag &amp; drop an image file here.</p>
   </div>
@@ -422,8 +419,7 @@
   function setTool(t) {
     tool = t;
     toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === t));
-    if (t !== 'select' && selected) { selected = null; drawSel(); }
-    overlay.style.cursor = t === 'select' ? 'default' : t === 'text' ? 'text' : 'crosshair';
+    overlay.style.cursor = t === 'text' ? 'text' : 'crosshair';
   }
 
   const colorsEl = document.getElementById('colors');
@@ -534,31 +530,31 @@
     if (!img || e.button !== 0) return;
     const p = pos(e);
 
-    if (tool === 'select') {
-      // red ✕ on the current selection?
-      if (selected && selected._delBtn) {
-        const d = selected._delBtn;
-        if (Math.hypot(p.x - d.x, p.y - d.y) <= d.r) { deleteSelected(); return; }
-      }
-      const hit = hitTest(p);
-      selected = hit;
-      if (hit) {
-        // replace with a clone so the undo snapshot keeps the original coords
-        snapshot();
-        const clone = { ...hit, points: hit.points ? hit.points.map(q => ({ x: q.x, y: q.y })) : undefined };
-        shapes[shapes.indexOf(hit)] = clone;
-        selected = clone;
-        overlay.setPointerCapture(e.pointerId);
-        draggingSel = true;
-        dragStart = p;
-        dragMoved = false;
-      }
+    // red ✕ on the current selection?
+    if (selected && selected._delBtn) {
+      const d = selected._delBtn;
+      if (Math.hypot(p.x - d.x, p.y - d.y) <= d.r) { deleteSelected(); return; }
+    }
+
+    // clicking anything already drawn grabs it, whatever tool is active
+    const hit = hitTest(p);
+    if (hit) {
+      // replace with a clone so the undo snapshot keeps the original coords
+      snapshot();
+      const clone = { ...hit, points: hit.points ? hit.points.map(q => ({ x: q.x, y: q.y })) : undefined };
+      shapes[shapes.indexOf(hit)] = clone;
+      selected = clone;
+      overlay.setPointerCapture(e.pointerId);
+      draggingSel = true;
+      dragStart = p;
+      dragMoved = false;
       drawSel();
       syncButtons();
       return;
     }
 
     if (tool === 'text') {
+      if (selected) { selected = null; drawSel(); }
       openTextEditor(p);
       return;
     }
@@ -580,7 +576,15 @@
       drawSel();
       return;
     }
-    if (!drawing) return;
+    if (!drawing) {
+      // hover affordance: show a move cursor over anything grabbable
+      if (img) {
+        const p = pos(e);
+        overlay.style.cursor = hitTest(p) ? 'move'
+          : tool === 'text' ? 'text' : 'crosshair';
+      }
+      return;
+    }
     const p = pos(e);
     drawing.x1 = p.x;
     drawing.y1 = p.y;
@@ -647,13 +651,57 @@
     return { x: minx - pad, y: miny - pad, w: maxx - minx + pad * 2, h: maxy - miny + pad * 2 };
   }
 
+  function distToSeg(p, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const l2 = dx * dx + dy * dy;
+    let t = l2 ? ((p.x - ax) * dx + (p.y - ay) * dy) / l2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (ax + dx * t), p.y - (ay + dy * t));
+  }
+
+  // Hit = on the drawn stroke itself (not the empty inside of a box/oval),
+  // so clicking blank canvas inside a shape still starts a new drawing
+  function hitShape(p, s, slack) {
+    if (s.tool === 'text') {
+      const b = bboxOf(s);
+      return p.x >= b.x - slack && p.x <= b.x + b.w + slack &&
+             p.y >= b.y - slack && p.y <= b.y + b.h + slack;
+    }
+    const tol = slack + s.lw / 2 + 4;
+    switch (s.tool) {
+      case 'pen':
+      case 'highlighter': {
+        const pts = s.points;
+        if (pts.length === 1) return Math.hypot(p.x - pts[0].x, p.y - pts[0].y) < tol;
+        for (let i = 1; i < pts.length; i++)
+          if (distToSeg(p, pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y) < tol) return true;
+        return false;
+      }
+      case 'arrow':
+        return distToSeg(p, s.x0, s.y0, s.x1, s.y1) < tol ||
+               Math.hypot(p.x - s.x1, p.y - s.y1) < Math.max(tol, s.lw * 3.2);
+      case 'sarrow':
+        return distToSeg(p, s.x0, s.y0, s.x1, s.y1) < Math.max(tol, Math.max(16, s.lw * 4) / 2);
+      case 'rect': {
+        const x = Math.min(s.x0, s.x1), y = Math.min(s.y0, s.y1);
+        const X = Math.max(s.x0, s.x1), Y = Math.max(s.y0, s.y1);
+        return distToSeg(p, x, y, X, y) < tol || distToSeg(p, X, y, X, Y) < tol ||
+               distToSeg(p, X, Y, x, Y) < tol || distToSeg(p, x, Y, x, y) < tol;
+      }
+      case 'oval': {
+        const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2;
+        const rx = Math.abs(s.x1 - s.x0) / 2 || 1, ry = Math.abs(s.y1 - s.y0) / 2 || 1;
+        const d = Math.hypot((p.x - cx) / rx, (p.y - cy) / ry);
+        return Math.abs(d - 1) * Math.min(rx, ry) < tol;
+      }
+    }
+    return false;
+  }
+
   function hitTest(p) {
     const slack = 6 / viewScale();
-    for (let i = shapes.length - 1; i >= 0; i--) {
-      const b = bboxOf(shapes[i]);
-      if (p.x >= b.x - slack && p.x <= b.x + b.w + slack &&
-          p.y >= b.y - slack && p.y <= b.y + b.h + slack) return shapes[i];
-    }
+    for (let i = shapes.length - 1; i >= 0; i--)
+      if (hitShape(p, shapes[i], slack)) return shapes[i];
     return null;
   }
 
@@ -783,21 +831,13 @@
 
   function roughness(s) { return Math.max(2, Math.min(7, s.lw * 0.55)); }
 
-  // Two diverging strokes: a main one plus a lighter, thinner "retrace" —
-  // the sketch texture comes from them not agreeing. Thick strokes get one
-  // pass (two smear into a blob).
+  // Single sketch pass — bow and overshoot carry the hand-drawn look
   function sketchPasses(ctx, s, draw) {
-    const passes = s.lw > 12 ? 1 : 2;
     const rng = mulberry32(s.seed || 1);
-    const r = roughness(s);
-    for (let p = 0; p < passes; p++) {
-      ctx.beginPath();
-      ctx.globalAlpha = p === 0 ? 1 : 0.5;
-      ctx.lineWidth = p === 0 ? s.lw * (passes === 1 ? 0.95 : 0.8) : Math.max(1, s.lw * 0.55);
-      draw(rng, r);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.lineWidth = s.lw * 0.95;
+    draw(rng, roughness(s));
+    ctx.stroke();
   }
 
   // A hand stroke isn't jittery — it bows in one smooth curve, overshoots
@@ -1139,7 +1179,6 @@
     if (mod) return;
 
     switch (e.code) {
-      case 'KeyV': setTool('select'); break;
       case 'KeyP': setTool('pen'); break;
       case 'KeyH': setTool('highlighter'); break;
       case 'KeyA': setTool('arrow'); break;
