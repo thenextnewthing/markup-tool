@@ -253,6 +253,22 @@
   #toast .check { color: #4ade80; }
 
   .cursor-crosshair { cursor: crosshair; }
+
+  #textEditor {
+    position: absolute;
+    background: transparent;
+    border: 1.5px dashed rgba(91,140,255,.85);
+    border-radius: 4px;
+    outline: none;
+    resize: none;
+    padding: 2px 4px;
+    margin: 0;
+    font-weight: 700;
+    line-height: 1.22;
+    white-space: pre;
+    overflow: hidden;
+    z-index: 5;
+  }
 </style>
 </head>
 <body>
@@ -270,6 +286,9 @@
   </div>
 
   <div class="group" id="tools">
+    <button class="tool-btn" data-tool="select" title="Select (V) — click an object, drag to move it, Delete or the red ✕ removes it">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l7 17 2.5-7 7-2.5z"/></svg>
+    </button>
     <button class="tool-btn active" data-tool="pen" title="Pen (P)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
     </button>
@@ -281,6 +300,9 @@
     </button>
     <button class="tool-btn" data-tool="sarrow" title="Skitch arrow (S)">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4.5 20.5 L15.6 10.9 L17.5 12.8 L20 4 L11.2 6.5 L13.1 8.4 L3.5 19.5 Z"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="text" title="Text (T) — click where you want it, type, press Enter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
     </button>
     <button class="tool-btn" data-tool="rect" title="Box (R)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
@@ -348,7 +370,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
     </div>
     <div class="big">Paste a screenshot to start &nbsp;<span class="kbd">⌘V</span></div>
-    <p>Annotate with pen, highlighter, arrows, boxes &amp; ovals.<br>
+    <p>Annotate with pen, highlighter, arrows, boxes, ovals &amp; text.<br>
+    The select tool (V) moves or deletes anything you've drawn.<br>
     Then hit <span class="kbd">⇧⌘C</span> to copy the result to your clipboard.<br>
     You can also drag &amp; drop an image file here.</p>
   </div>
@@ -367,15 +390,23 @@
   // ---------- State ----------
   const COLORS = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#111111', '#ffffff'];
   const SIZES = { S: 2.5, M: 5, L: 10, XL: 18, XXL: 30 };
+  const FONTS = { S: 18, M: 26, L: 38, XL: 56, XXL: 80 };
 
   let img = null;            // HTMLImageElement / ImageBitmap of the pasted image
   let shapes = [];           // committed shapes
-  let redoStack = [];
+  let history = [];          // undo snapshots of the shapes array
+  let future = [];           // redo snapshots
   let tool = 'pen';
   let color = COLORS[0];
   let sizeKey = 'M';
   let drawing = null;        // in-progress shape
+  let selected = null;       // shape picked with the select tool
+  let draggingSel = false;
+  let dragStart = null;
+  let dragMoved = false;
   let handDrawn = localStorage.getItem('handDrawn') === '1';
+
+  function snapshot() { history.push(shapes.slice()); future = []; }
 
   const base = document.getElementById('base');
   const overlay = document.getElementById('overlay');
@@ -391,6 +422,8 @@
   function setTool(t) {
     tool = t;
     toolBtns.forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+    if (t !== 'select' && selected) { selected = null; drawSel(); }
+    overlay.style.cursor = t === 'select' ? 'default' : t === 'text' ? 'text' : 'crosshair';
   }
 
   const colorsEl = document.getElementById('colors');
@@ -422,8 +455,8 @@
   copyBtn.addEventListener('click', copyResult);
 
   function syncButtons() {
-    undoBtn.disabled = shapes.length === 0;
-    redoBtn.disabled = redoStack.length === 0;
+    undoBtn.disabled = history.length === 0;
+    redoBtn.disabled = future.length === 0;
     clearBtn.disabled = !img;
     copyBtn.disabled = !img;
   }
@@ -432,7 +465,10 @@
   function loadImage(image) {
     img = image;
     shapes = [];
-    redoStack = [];
+    history = [];
+    future = [];
+    selected = null;
+    closeTextEditor(false);
     base.width = overlay.width = image.naturalWidth || image.width;
     base.height = overlay.height = image.naturalHeight || image.height;
     fitCanvas();
@@ -496,14 +532,54 @@
 
   overlay.addEventListener('pointerdown', e => {
     if (!img || e.button !== 0) return;
-    overlay.setPointerCapture(e.pointerId);
     const p = pos(e);
+
+    if (tool === 'select') {
+      // red ✕ on the current selection?
+      if (selected && selected._delBtn) {
+        const d = selected._delBtn;
+        if (Math.hypot(p.x - d.x, p.y - d.y) <= d.r) { deleteSelected(); return; }
+      }
+      const hit = hitTest(p);
+      selected = hit;
+      if (hit) {
+        // replace with a clone so the undo snapshot keeps the original coords
+        snapshot();
+        const clone = { ...hit, points: hit.points ? hit.points.map(q => ({ x: q.x, y: q.y })) : undefined };
+        shapes[shapes.indexOf(hit)] = clone;
+        selected = clone;
+        overlay.setPointerCapture(e.pointerId);
+        draggingSel = true;
+        dragStart = p;
+        dragMoved = false;
+      }
+      drawSel();
+      syncButtons();
+      return;
+    }
+
+    if (tool === 'text') {
+      openTextEditor(p);
+      return;
+    }
+
+    if (selected) { selected = null; drawSel(); }
+    overlay.setPointerCapture(e.pointerId);
     const lw = SIZES[sizeKey] * (tool === 'highlighter' ? 2.4 : 1);
     drawing = { tool, color, lw, x0: p.x, y0: p.y, x1: p.x, y1: p.y, points: [p], seed: (Math.random() * 2 ** 31) | 0 };
     renderShape(octx, drawing);
   });
 
   overlay.addEventListener('pointermove', e => {
+    if (draggingSel && selected) {
+      const p = pos(e);
+      translateShape(selected, p.x - dragStart.x, p.y - dragStart.y);
+      dragStart = p;
+      dragMoved = true;
+      redrawBase();
+      drawSel();
+      return;
+    }
     if (!drawing) return;
     const p = pos(e);
     drawing.x1 = p.x;
@@ -514,20 +590,184 @@
   });
 
   function finishStroke() {
+    if (draggingSel) {
+      draggingSel = false;
+      if (!dragMoved) history.pop();   // plain click: keep selection, drop the no-op snapshot
+      syncButtons();
+      return;
+    }
     if (!drawing) return;
     octx.clearRect(0, 0, overlay.width, overlay.height);
     // Ignore zero-size accidental clicks for shapes; keep dots for pen
     const moved = Math.hypot(drawing.x1 - drawing.x0, drawing.y1 - drawing.y0) > 2 || drawing.points.length > 2;
     if (moved || drawing.tool === 'pen' || drawing.tool === 'highlighter') {
+      snapshot();
       shapes.push(drawing);
-      redoStack = [];
       drawShapeOnBase(drawing);
     }
     drawing = null;
     syncButtons();
   }
   overlay.addEventListener('pointerup', finishStroke);
-  overlay.addEventListener('pointercancel', () => { drawing = null; octx.clearRect(0, 0, overlay.width, overlay.height); });
+  overlay.addEventListener('pointercancel', () => {
+    drawing = null;
+    if (draggingSel) { draggingSel = false; if (!dragMoved) history.pop(); }
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    drawSel();
+  });
+
+  // ---------- Selection: hit test, move, delete ----------
+  function textMetrics(s) {
+    octx.font = textFont(s.fontSize);
+    const lines = s.text.split('\n');
+    let w = 0;
+    lines.forEach(l => { w = Math.max(w, octx.measureText(l).width); });
+    return { w, h: lines.length * s.fontSize * 1.22 };
+  }
+
+  function bboxOf(s) {
+    if (s.tool === 'text') {
+      const m = textMetrics(s);
+      return { x: s.x, y: s.y, w: m.w, h: m.h };
+    }
+    let minx, miny, maxx, maxy;
+    if (s.points && (s.tool === 'pen' || s.tool === 'highlighter')) {
+      minx = maxx = s.points[0].x; miny = maxy = s.points[0].y;
+      s.points.forEach(q => {
+        minx = Math.min(minx, q.x); maxx = Math.max(maxx, q.x);
+        miny = Math.min(miny, q.y); maxy = Math.max(maxy, q.y);
+      });
+    } else {
+      minx = Math.min(s.x0, s.x1); maxx = Math.max(s.x0, s.x1);
+      miny = Math.min(s.y0, s.y1); maxy = Math.max(s.y0, s.y1);
+    }
+    const pad = s.tool === 'sarrow' ? Math.max(8, s.lw * 2)
+              : s.tool === 'arrow' ? Math.max(5, s.lw * 1.6)
+              : s.lw / 2 + 2;
+    return { x: minx - pad, y: miny - pad, w: maxx - minx + pad * 2, h: maxy - miny + pad * 2 };
+  }
+
+  function hitTest(p) {
+    const slack = 6 / viewScale();
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const b = bboxOf(shapes[i]);
+      if (p.x >= b.x - slack && p.x <= b.x + b.w + slack &&
+          p.y >= b.y - slack && p.y <= b.y + b.h + slack) return shapes[i];
+    }
+    return null;
+  }
+
+  function translateShape(s, dx, dy) {
+    if (s.tool === 'text') { s.x += dx; s.y += dy; return; }
+    s.x0 += dx; s.x1 += dx; s.y0 += dy; s.y1 += dy;
+    if (s.points) s.points.forEach(q => { q.x += dx; q.y += dy; });
+  }
+
+  function deleteSelected() {
+    if (!selected) return;
+    snapshot();
+    shapes = shapes.filter(s => s !== selected);
+    selected = null;
+    redrawBase();
+    drawSel();
+    syncButtons();
+  }
+
+  function viewScale() {
+    const r = overlay.getBoundingClientRect();
+    return (r.width / overlay.width) || 1;
+  }
+
+  // Selection outline + red ✕ delete button, sized to look constant on screen
+  function drawSel() {
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    if (!selected) return;
+    const u = 1 / viewScale();
+    const b = bboxOf(selected);
+    octx.save();
+    octx.strokeStyle = '#5b8cff';
+    octx.lineWidth = 1.5 * u;
+    octx.setLineDash([6 * u, 4 * u]);
+    octx.strokeRect(b.x - 6 * u, b.y - 6 * u, b.w + 12 * u, b.h + 12 * u);
+    octx.setLineDash([]);
+    const cx = Math.min(overlay.width - 14 * u, b.x + b.w + 16 * u);
+    const cy = Math.max(14 * u, b.y - 16 * u);
+    octx.beginPath();
+    octx.arc(cx, cy, 11 * u, 0, Math.PI * 2);
+    octx.fillStyle = '#ef4444';
+    octx.fill();
+    octx.strokeStyle = '#fff';
+    octx.lineWidth = 2.2 * u;
+    octx.beginPath();
+    octx.moveTo(cx - 4.5 * u, cy - 4.5 * u); octx.lineTo(cx + 4.5 * u, cy + 4.5 * u);
+    octx.moveTo(cx + 4.5 * u, cy - 4.5 * u); octx.lineTo(cx - 4.5 * u, cy + 4.5 * u);
+    octx.stroke();
+    octx.restore();
+    selected._delBtn = { x: cx, y: cy, r: 14 * u };
+  }
+
+  // ---------- Text ----------
+  function textFont(size) {
+    const fam = handDrawn
+      ? "'Chalkboard SE','Comic Sans MS',cursive"
+      : "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+    return `bold ${size}px ${fam}`;
+  }
+
+  // Skitch-style halo: outline in whichever contrasts with the fill color
+  function contrastFor(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = .299 * (n >> 16 & 255) + .587 * (n >> 8 & 255) + .114 * (n & 255);
+    return lum > 160 ? 'rgba(17,19,26,.9)' : 'rgba(255,255,255,.93)';
+  }
+
+  let editor = null;
+  function openTextEditor(p) {
+    closeTextEditor(true);
+    const scale = viewScale();
+    const fontSize = FONTS[sizeKey];
+    editor = document.createElement('textarea');
+    editor.id = 'textEditor';
+    editor.spellcheck = false;
+    const st = editor.style;
+    st.left = (p.x * scale - 5.5) + 'px';
+    st.top = (p.y * scale - 3.5) + 'px';
+    st.font = textFont(fontSize * scale);
+    st.color = color;
+    st.caretColor = color;
+    wrap.appendChild(editor);
+    const size = () => {
+      octx.font = textFont(fontSize);
+      let w = 30;
+      editor.value.split('\n').forEach(l => { w = Math.max(w, octx.measureText(l).width); });
+      st.width = (w * scale + 26) + 'px';
+      st.height = (editor.value.split('\n').length * fontSize * 1.22 * scale + 10) + 'px';
+    };
+    size();
+    editor.addEventListener('input', size);
+    editor.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); closeTextEditor(true); }
+      else if (e.key === 'Escape') closeTextEditor(false);
+    });
+    editor.addEventListener('blur', () => closeTextEditor(true));
+    editor._commit = { x: p.x, y: p.y, fontSize, color };
+    setTimeout(() => editor && editor.focus(), 0);
+  }
+
+  function closeTextEditor(commit) {
+    if (!editor) return;
+    const ed = editor;
+    editor = null;                       // guard against blur re-entry
+    const text = ed.value.replace(/\s+$/, '');
+    if (commit && text) {
+      snapshot();
+      shapes.push({ tool: 'text', ...ed._commit, text });
+      redrawBase();
+      syncButtons();
+    }
+    ed.remove();
+  }
 
   // ---------- Hand-drawn (sketchy) rendering ----------
   // Deterministic per-shape randomness so the wobble doesn't change on redraws
@@ -740,6 +980,19 @@
         ctx.stroke();
         break;
       }
+      case 'text': {
+        ctx.font = textFont(s.fontSize);
+        ctx.textBaseline = 'top';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = Math.max(2.5, s.fontSize / 6.5);
+        ctx.strokeStyle = contrastFor(s.color);
+        const lh = s.fontSize * 1.22;
+        s.text.split('\n').forEach((ln, i) => {
+          ctx.strokeText(ln, s.x, s.y + i * lh);
+          ctx.fillText(ln, s.x, s.y + i * lh);
+        });
+        break;
+      }
       case 'oval': {
         const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2;
         const rx = Math.abs(s.x1 - s.x0) / 2, ry = Math.abs(s.y1 - s.y0) / 2;
@@ -766,16 +1019,21 @@
 
   // ---------- Undo / redo ----------
   function undo() {
-    if (!shapes.length) return;
-    redoStack.push(shapes.pop());
+    if (!history.length) return;
+    future.push(shapes);
+    shapes = history.pop();
+    selected = null;
     redrawBase();
+    drawSel();
     syncButtons();
   }
   function redo() {
-    if (!redoStack.length) return;
-    const s = redoStack.pop();
-    shapes.push(s);
-    drawShapeOnBase(s);
+    if (!future.length) return;
+    history.push(shapes);
+    shapes = future.pop();
+    selected = null;
+    redrawBase();
+    drawSel();
     syncButtons();
   }
 
@@ -854,7 +1112,19 @@
 
   // ---------- Keyboard shortcuts ----------
   window.addEventListener('keydown', e => {
+    if (e.target && (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT')) return;
     const mod = e.metaKey || e.ctrlKey;
+
+    if ((e.code === 'Backspace' || e.code === 'Delete') && selected && !mod) {
+      e.preventDefault();
+      deleteSelected();
+      return;
+    }
+    if (e.code === 'Escape' && selected) {
+      selected = null;
+      drawSel();
+      return;
+    }
 
     if (mod && e.shiftKey && e.code === 'KeyC') {
       e.preventDefault();
@@ -869,10 +1139,12 @@
     if (mod) return;
 
     switch (e.code) {
+      case 'KeyV': setTool('select'); break;
       case 'KeyP': setTool('pen'); break;
       case 'KeyH': setTool('highlighter'); break;
       case 'KeyA': setTool('arrow'); break;
       case 'KeyS': setTool('sarrow'); break;
+      case 'KeyT': setTool('text'); break;
       case 'KeyR': setTool('rect'); break;
       case 'KeyO': setTool('oval'); break;
     }
