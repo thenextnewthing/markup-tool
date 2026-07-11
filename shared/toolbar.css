@@ -1,0 +1,252 @@
+/* Shared toolbar + editor-widget styles. Loaded by the website page AND
+ * injected into the extension's shadow root — hence variables on both
+ * :root and :host. */
+:root, :host {
+  --bg: #1e2128;
+  --panel: #2a2e38;
+  --panel-2: #343945;
+  --border: #3d4350;
+  --text: #e8eaf0;
+  --muted: #9aa1b0;
+  --accent: #5b8cff;
+}
+
+.mk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+}
+/* floating variant used by the extension */
+.mk-floating {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.35);
+  z-index: 2147483646;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  background: var(--panel-2);
+  border-radius: 10px;
+  flex: none;
+}
+.tool-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.tool-btn:hover { background: #404656; }
+.tool-btn.active { background: var(--accent); color: #fff; }
+.tool-btn svg { width: 18px; height: 18px; }
+
+.swatch {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+}
+.swatch.active {
+  border-color: #fff;
+  transform: scale(1.12);
+}
+
+.size-btn {
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  width: 28px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.size-btn:hover { background: #404656; }
+.size-btn.active { background: var(--accent); }
+.size-btn .dot { border-radius: 50%; background: currentColor; }
+
+.action-btn {
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  height: 32px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  flex: none;
+}
+.action-btn:hover { background: #404656; }
+.action-btn:disabled { opacity: .35; cursor: default; }
+.action-btn:disabled:hover { background: transparent; }
+.action-btn svg { width: 18px; height: 18px; }
+
+.primary-btn {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.primary-btn:hover { background: #4a7bf0; }
+.exit-btn {
+  color: var(--muted);
+  height: 38px;
+  width: 34px;
+  font-size: 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  cursor: pointer;
+  flex: none;
+}
+.exit-btn:hover { color: var(--text); background: #404656; }
+
+.kbd {
+  font-size: 11px;
+  opacity: .75;
+  background: rgba(255,255,255,.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.spacer { flex: 1; }
+
+/* ---------- Settings (gear) dropdown ---------- */
+#settings { position: relative; flex: none; }
+#settingsMenu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  width: 300px;
+  box-shadow: 0 12px 34px rgba(0,0,0,.5);
+  z-index: 60;
+}
+/* invisible bridge so the menu doesn't close crossing the gap below the gear */
+#settingsMenu::before {
+  content: "";
+  position: absolute;
+  top: -8px; left: 0; right: 0;
+  height: 8px;
+}
+#settings:hover #settingsMenu { display: block; }
+#settings:hover #gearBtn { background: #404656; }
+.menu-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  text-decoration: none;
+}
+.menu-option:hover { background: var(--panel-2); }
+.menu-option input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: none;
+  margin-top: 2px;
+}
+.menu-option svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--muted); }
+.menu-option .t { font-size: 13px; font-weight: 600; }
+.menu-option .d { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 2px; }
+
+#brand {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: .3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  color: var(--text);
+}
+@media (max-width: 1240px) {
+  #brand .brand-text { display: none; }
+}
+#brand .logo { width: 22px; height: 22px; display: block; }
+
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: #11131a;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: transform .25s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 2147483646;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+#toast .check { color: #4ade80; }
+#toast button {
+  pointer-events: auto;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ---------- Inline text editor ---------- */
+#textEditor {
+  position: absolute;
+  background: transparent;
+  border: 1.5px dashed rgba(91,140,255,.85);
+  border-radius: 4px;
+  outline: none;
+  resize: none;
+  padding: 2px 4px;
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.22;
+  white-space: pre;
+  overflow: hidden;
+  z-index: 5;
+}

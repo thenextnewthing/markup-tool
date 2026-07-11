@@ -1,0 +1,9 @@
+{
+  "name": "markup-tool",
+  "private": true,
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "zip": "node scripts/zip-extension.mjs",
+    "deploy": "npm run sync && npm run zip && wrangler deploy"
+  }
+}
