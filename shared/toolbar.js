@@ -35,7 +35,13 @@ window.MarkupToolbar = (() => {
     </svg>`;
 
   const SIZE_DOTS = { S: 4, M: 7, L: 10, XL: 14, XXL: 19 };
-  const SIZE_TITLES = { S: 'Thin (1)', M: 'Medium (2)', L: 'Thick (3)', XL: 'Extra thick (4)', XXL: 'Huge (5)' };
+  const SIZE_TITLES = {
+    S: 'Thin stroke / small text — or press 1',
+    M: 'Medium stroke / text — or press 2',
+    L: 'Thick stroke / text — or press 3',
+    XL: 'Extra-thick stroke / big text — or press 4',
+    XXL: 'Huge stroke / huge text — or press 5',
+  };
   const DEFAULT_SIZE = 'L';
 
   /**
@@ -129,6 +135,28 @@ window.MarkupToolbar = (() => {
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => toastEl.classList.remove('show'), 8000);
     }
+
+    // ---------- instant tooltips ----------
+    // Native title tooltips are slow and tiny; show our own immediately on
+    // hover. The gear keeps its native title (its hover opens the menu).
+    const tipEl = document.createElement('div');
+    tipEl.id = 'mkTip';
+    toastHost.appendChild(tipEl);
+    container.querySelectorAll('.tool-btn[title], .size-btn[title], .action-btn[title], .exit-btn[title]').forEach(el => {
+      if (el.id === 'gearBtn') return;
+      const text = el.getAttribute('title');
+      el.removeAttribute('title');
+      el.addEventListener('mouseenter', () => {
+        tipEl.textContent = text;
+        tipEl.style.display = 'block';
+        const r = el.getBoundingClientRect();
+        tipEl.style.top = (r.bottom + 8) + 'px';
+        const left = r.left + r.width / 2 - tipEl.offsetWidth / 2;
+        tipEl.style.left = Math.max(8, Math.min(left, window.innerWidth - tipEl.offsetWidth - 8)) + 'px';
+      });
+      el.addEventListener('mouseleave', () => { tipEl.style.display = 'none'; });
+      el.addEventListener('pointerdown', () => { tipEl.style.display = 'none'; });
+    });
 
     // ---------- wiring ----------
     const editor = hooks.editor;
