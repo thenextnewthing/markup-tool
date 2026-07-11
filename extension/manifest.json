@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Andrew's Markup — page annotator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Draw on any page with the markup tools, then capture from the top of the page to your lowest annotation straight to the clipboard.",
   "action": { "default_title": "Markup this page" },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+M" },
+      "description": "Toggle markup mode on this page"
+    }
+  },
   "background": { "service_worker": "background.js" },
   "permissions": ["activeTab", "scripting", "storage"],
   "web_accessible_resources": [{
