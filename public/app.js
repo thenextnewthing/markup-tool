@@ -76,6 +76,9 @@
       { id: 'handDrawnCb', title: 'Hand-drawn', desc: 'Gives arrows, boxes &amp; ovals a wobbly, sketched-by-hand look instead of perfect geometry. Checking or unchecking it also restyles everything already drawn on the image.' },
       { id: 'autoPasteCb', title: 'Auto paste', desc: 'Automatically loads the image from your clipboard the moment you open or switch back to this tab — take a screenshot, come here, and it\'s already on the canvas. No need to press ⌘V.' },
     ],
+    menuLinks: [
+      { href: 'markup-extension.zip', download: true, title: 'Download the Chrome extension', desc: 'Draw with these same tools on any live web page and capture it to your clipboard. Unzip, then load it via chrome://extensions → Developer mode → Load unpacked.' },
+    ],
     primary: { id: 'copyBtn', icon: 'copy', label: 'Copy', kbd: '⇧⌘C', title: 'Copy the annotated image to the clipboard' },
     toastHost: document.body,
   }, {

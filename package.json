@@ -4,6 +4,6 @@
   "scripts": {
     "sync": "node scripts/sync.mjs",
     "zip": "node scripts/zip-extension.mjs",
-    "deploy": "npm run sync && npm run zip && wrangler deploy"
+    "deploy": "npm run zip && npx wrangler deploy"
   }
 }
