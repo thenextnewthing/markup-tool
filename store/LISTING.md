@@ -43,8 +43,9 @@ Also: hand-drawn sketch mode, click any drawing to move or delete it, full undo/
   - `activeTab` — access the page only when the user clicks the extension button, to show the annotation toolbar and take the capture screenshots.
   - `scripting` — inject the annotation toolbar/canvas into the active tab on click.
   - `storage` — remember the user's hand-drawn style preference.
-- **Data usage:** does not collect, store, or transmit any user data; everything stays in the browser. (Check "none of the above" for all data-collection categories, and certify the disclosures.)
+- **Data usage:** check "Website content" and "User activity" because page screenshots and drawing input are handled locally to provide the requested feature. Nothing is transmitted to the developer or third parties. Certify all three limited-use disclosures.
 - **Remote code:** none — all code ships in the package.
+- **Privacy policy:** https://markup.codeshiftagent.com/privacy.html
 
 ## Assets
 

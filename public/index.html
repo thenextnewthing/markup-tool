@@ -69,6 +69,16 @@
   #empty .paste-icon svg { width: 34px; height: 34px; }
   body.dragover #empty .paste-icon { border-color: var(--accent); color: var(--accent); }
 
+  #privacyLink {
+    position: fixed;
+    right: 14px;
+    bottom: 10px;
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: none;
+  }
+  #privacyLink:hover { color: var(--text); }
+
   .cursor-crosshair { cursor: crosshair; }
 </style>
 </head>
@@ -92,6 +102,8 @@
     <canvas id="overlay" class="cursor-crosshair"></canvas>
   </div>
 </div>
+
+<a id="privacyLink" href="privacy.html">Privacy</a>
 
 <script src="shared/markup-core.js"></script>
 <script src="shared/toolbar.js"></script>
