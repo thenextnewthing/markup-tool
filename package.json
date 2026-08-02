@@ -4,6 +4,13 @@
   "scripts": {
     "sync": "node scripts/sync.mjs",
     "zip": "node scripts/zip-extension.mjs",
-    "deploy": "npm run zip && npx wrangler deploy"
+    "build": "npm run zip",
+    "test": "npm run sync && node scripts/verify/verify-site.js && node scripts/verify/verify-extension.js",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "archiver": "^8.0.0",
+    "playwright": "^1.62.1",
+    "wrangler": "^4.118.0"
   }
 }

@@ -1,8 +1,11 @@
 /* Full regression of the markup website (split shared-core version + crop).
  * Drives file://…/public/index.html in headless Chromium. */
-const { chromium } = require('/Users/theandrew/.npm/_npx/e41f203b7505f1fb/node_modules/playwright');
+const { chromium } = require('playwright');
 const OUT = require('os').tmpdir();
-const PAGE = 'file:///Users/Shared/CCP - markup tool/public/index.html';
+const path = require('path');
+const { pathToFileURL } = require('url');
+const ROOT = path.resolve(__dirname, '../..');
+const PAGE = pathToFileURL(path.join(ROOT, 'public/index.html')).href;
 
 const fails = [];
 function check(name, cond) {
@@ -73,6 +76,7 @@ const baseSize = p => p.evaluate(() => {
   await page.click('.tool-btn[data-tool="text"]');
   await page.mouse.click(box.x + 580, box.y + 300);
   await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
   await page.keyboard.type('Halo text');
   await page.keyboard.press('Enter');
   check('text editor commits on Enter', await page.locator('#textEditor').count() === 0);
