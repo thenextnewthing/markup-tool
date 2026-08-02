@@ -79,7 +79,11 @@ const baseSize = p => p.evaluate(() => {
   await page.locator('#textEditor').focus();
   await page.keyboard.type('Halo text');
   await page.keyboard.press('Enter');
-  check('text editor commits on Enter', await page.locator('#textEditor').count() === 0);
+  await page.keyboard.type('on two lines');
+  check('Enter adds a newline and keeps editing',
+    await page.inputValue('#textEditor') === 'Halo text\non two lines');
+  await page.locator('#textEditor').blur();
+  check('text editor commits on blur', await page.locator('#textEditor').count() === 0);
 
   const afterDraw = await baseData(page);
   check('7 shapes drawn (canvas changed)', afterDraw.length > 20000);

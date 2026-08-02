@@ -97,7 +97,11 @@ function check(name, cond) {
   await page.locator('#textEditor').focus();
   await page.keyboard.type('On the page!');
   await page.keyboard.press('Enter');
-  check('text committed on page', await page.locator('#textEditor').count() === 0);
+  await page.keyboard.type('Second line');
+  check('Enter adds a newline and keeps editing on page',
+    await page.inputValue('#textEditor') === 'On the page!\nSecond line');
+  await page.locator('#textEditor').blur();
+  check('text committed on page blur', await page.locator('#textEditor').count() === 0);
 
   // Undo works (removes text)
   await page.keyboard.press('Meta+z');

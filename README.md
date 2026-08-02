@@ -8,7 +8,7 @@ A markup tool in two forms that share one editor codebase:
 ## Features (both surfaces)
 
 - Pen, highlighter, arrow, Skitch-style tapered arrow, text, box, and oval tools with keyboard shortcuts (P/H/A/S/T/R/O)
-- **Text** with a Skitch-style contrast halo (white outline on dark colors, dark on light) so it reads on any background; multi-line via Shift+Enter
+- **Text** with a Skitch-style contrast halo (white outline on dark colors, dark on light) so it reads on any background; Enter starts a new line, and clicking elsewhere finishes the text
 - **Click-to-grab** — with any tool active, clicking an object's stroke selects it: drag to move, Delete key or the red ✕ to remove; clicking empty space (even inside a box) draws as usual; undo/redo covers moves and deletes
 - 8 colors, 5 stroke sizes (S–XXL, keys 1–5, L default)
 - **Hand-drawn mode** — sketchy, bowed strokes with overshot corners; toggling restyles everything already drawn (in the gear menu)
