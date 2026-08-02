@@ -103,7 +103,23 @@ function check(name, cond) {
   await page.locator('#textEditor').blur();
   check('text committed on page blur', await page.locator('#textEditor').count() === 0);
 
-  // Undo works (removes text)
+  // Escape commits text too; undo removes that committed text.
+  const beforeEscapeText = await page.evaluate(() =>
+    document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
+  await page.mouse.click(900, 500);
+  await page.waitForSelector('#textEditor');
+  await page.keyboard.type('Escape commits');
+  await page.keyboard.press('Escape');
+  const afterEscapeText = await page.evaluate(() =>
+    document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
+  check('Escape commits text on page',
+    await page.locator('#textEditor').count() === 0 && afterEscapeText !== beforeEscapeText);
+  await page.keyboard.press('Meta+z');
+  const afterEscapeUndo = await page.evaluate(() =>
+    document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
+  check('undo removes Escape-committed text on page', afterEscapeUndo === beforeEscapeText);
+
+  // Undo works (removes the earlier text)
   await page.keyboard.press('Meta+z');
 
   // ---- Capture ----

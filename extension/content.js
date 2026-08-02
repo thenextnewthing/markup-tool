@@ -183,6 +183,8 @@
   // Escape with nothing selected/pending exits markup mode (core handles the
   // selected/crop cases first and stops propagation when it does)
   function onEscape(e) {
+    const target = (e.composedPath ? e.composedPath()[0] : e.target) || e.target;
+    if (target && target.id === 'textEditor') return;
     if (e.code === 'Escape' && !e.defaultPrevented) teardown();
   }
   window.addEventListener('keydown', onEscape, true);

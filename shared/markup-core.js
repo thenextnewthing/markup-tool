@@ -459,7 +459,7 @@ window.MarkupCore = (() => {
       editor.addEventListener('input', size);
       editor.addEventListener('keydown', e => {
         e.stopPropagation();
-        if (e.key === 'Escape') closeTextEditor(false);
+        if (e.key === 'Escape') closeTextEditor(true);
       });
       editor.addEventListener('blur', () => closeTextEditor(true));
       editor._commit = { x: p.x, y: p.y, fontSize, color };

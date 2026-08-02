@@ -85,6 +85,17 @@ const baseSize = p => p.evaluate(() => {
   await page.locator('#textEditor').blur();
   check('text editor commits on blur', await page.locator('#textEditor').count() === 0);
 
+  // Escape commits text too; undo removes that committed text.
+  const beforeEscapeText = await baseData(page);
+  await page.mouse.click(box.x + 850, box.y + 500);
+  await page.waitForSelector('#textEditor');
+  await page.keyboard.type('Escape commits');
+  await page.keyboard.press('Escape');
+  check('Escape commits text',
+    await page.locator('#textEditor').count() === 0 && await baseData(page) !== beforeEscapeText);
+  await page.keyboard.press('Meta+z');
+  check('undo removes Escape-committed text', await baseData(page) === beforeEscapeText);
+
   const afterDraw = await baseData(page);
   check('7 shapes drawn (canvas changed)', afterDraw.length > 20000);
   await page.locator('#canvasWrap').screenshot({ path: OUT + '/site-1-all-tools.png' });
