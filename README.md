@@ -48,18 +48,21 @@ Edit **only** `shared/` for editor changes — `public/shared/` and `extension/s
 
 ## Deploying the website
 
-```sh
-npm run deploy    # sync shared → rebuild extension zip → wrangler deploy
-```
+Pushing to `main` automatically builds and deploys the production Worker through
+Cloudflare Workers Builds. Pull requests and other branches produce preview
+versions without replacing production.
+
+For a deliberate local deployment, run `npm run deploy`. This syncs the shared
+editor, rebuilds the extension zip, and runs Wrangler.
 
 The Cloudflare edge cache can serve the old version for ~a minute after a deploy.
 
 ## Verifying changes
 
-```sh
-node scripts/verify/verify-site.js        # website: all tools, crop, undo/redo, persistence
-node scripts/verify/verify-extension.js   # extension: draw on a tall page, scroll anchoring,
-                                          # keyboard guard, capture correctness, toggle off/on
-```
+Run `npm test` for both end-to-end suites, or run either script directly when
+working on only one surface.
 
-Both run headless Chromium via Playwright (see `.claude/skills/verify/SKILL.md` for the underlying patterns; the extension harness loads a test build with host_permissions added, since automation can't produce the activeTab click).
+Both run headless Chromium via the repo's Playwright dependency (see
+`.claude/skills/verify/SKILL.md` for the underlying patterns; the extension
+harness loads a test build with host permissions added, since automation cannot
+produce the activeTab click).

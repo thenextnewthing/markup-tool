@@ -1,18 +1,23 @@
 /* Extension end-to-end: load unpacked in Chromium, activate on a tall page,
  * draw across scroll positions, verify anchoring + keyboard guard + capture. */
-const { chromium } = require('/Users/theandrew/.npm/_npx/e41f203b7505f1fb/node_modules/playwright');
+const { chromium } = require('playwright');
 const fs = require('fs');
-const OUT = require('os').tmpdir();
-const REAL_EXT = '/Users/Shared/CCP - markup tool/extension';
+const os = require('os');
+const path = require('path');
+const { pathToFileURL } = require('url');
+const OUT = os.tmpdir();
+const ROOT = path.resolve(__dirname, '../..');
+const REAL_EXT = path.join(ROOT, 'extension');
 // Test build: same code, plus host_permissions so the test hook can inject
 // without the user-gesture activeTab grant (which automation can't produce).
-const EXT = OUT + '/ext-test';
+const EXT = fs.mkdtempSync(path.join(OUT, 'markup-ext-test-'));
 fs.rmSync(EXT, { recursive: true, force: true });
 fs.cpSync(REAL_EXT, EXT, { recursive: true });
-const mf = JSON.parse(fs.readFileSync(EXT + '/manifest.json', 'utf8'));
+const manifestPath = path.join(EXT, 'manifest.json');
+const mf = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 mf.host_permissions = ['<all_urls>', 'file:///*'];
-fs.writeFileSync(EXT + '/manifest.json', JSON.stringify(mf, null, 2));
-const FIXTURE = 'file://' + __dirname + '/fixture-tall.html';
+fs.writeFileSync(manifestPath, JSON.stringify(mf, null, 2));
+const FIXTURE = pathToFileURL(path.join(__dirname, 'fixture-tall.html')).href;
 
 const fails = [];
 function check(name, cond) {
@@ -21,7 +26,7 @@ function check(name, cond) {
 }
 
 (async () => {
-  const userDir = OUT + '/chrome-profile-' + process.pid;
+  const userDir = fs.mkdtempSync(path.join(OUT, 'markup-chrome-profile-'));
   const context = await chromium.launchPersistentContext(userDir, {
     channel: 'chromium',
     headless: true,
@@ -89,6 +94,7 @@ function check(name, cond) {
   await page.click('.tool-btn[data-tool="text"]');
   await page.mouse.click(200, 300);
   await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
   await page.keyboard.type('On the page!');
   await page.keyboard.press('Enter');
   check('text committed on page', await page.locator('#textEditor').count() === 0);
@@ -137,5 +143,6 @@ function check(name, cond) {
   console.log(fails.length ? `\n${fails.length} FAILURES` : '\nALL PASS');
   await context.close();
   fs.rmSync(userDir, { recursive: true, force: true });
+  fs.rmSync(EXT, { recursive: true, force: true });
   process.exit(fails.length ? 1 : 0);
 })();

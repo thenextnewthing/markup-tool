@@ -1,0 +1,3 @@
+# Claude Code reads CLAUDE.md natively. This fallback lets Codex use the same
+# canonical file, avoiding duplicated project instructions.
+project_doc_fallback_filenames = ["CLAUDE.md"]
