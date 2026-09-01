@@ -1,5 +1,5 @@
 /* Website glue for the shared markup core: image paste/drop/auto-paste,
- * canvas fitting, crop application, and copy-to-clipboard. */
+ * canvas fitting, crop application, copy-to-clipboard, and PNG download. */
 (() => {
   'use strict';
 
@@ -62,6 +62,7 @@
     onToolChange: t => refs && refs.setActiveTool(t),
     onSizeChange: k => refs && refs.setActiveSize(k),
     onPrimary: () => copyResult(),
+    onSecondary: () => downloadResult(),
     toast: (m, isErr) => refs && refs.toast(m, isErr),
     exclusiveKeys: false,
   };
@@ -79,11 +80,13 @@
     menuLinks: [
       { href: 'markup-extension.zip', download: true, title: 'Download the Chrome extension', desc: 'Draw with these same tools on any live web page and capture it to your clipboard. Unzip, then load it via chrome://extensions → Developer mode → Load unpacked.' },
     ],
+    secondary: { id: 'downloadBtn', icon: 'download', label: 'Download', kbd: '⇧⌘S', title: 'Download the annotated image as a PNG' },
     primary: { id: 'copyBtn', icon: 'copy', label: 'Copy', kbd: '⇧⌘C', title: 'Copy the annotated image to the clipboard' },
     toastHost: document.body,
   }, {
     editor,
     onPrimary: () => copyResult(),
+    onSecondary: () => downloadResult(),
     onClear: () => { if (img) loadImage(img); },
     onOption(id, checked) {
       if (id === 'handDrawnCb') editor.setHandDrawn(checked);
@@ -168,19 +171,41 @@
     if (f) handleBlob(f);
   });
 
-  // ---------- Copy ----------
+  // ---------- Copy / download (same annotated pixels) ----------
+  function annotatedPngBlob() {
+    return new Promise((res, rej) =>
+      base.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+  }
+
+  async function downloadResult() {
+    if (!img) return;
+    try {
+      const blob = await annotatedPngBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'markup.png';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      refs.toast('Downloaded markup.png');
+    } catch (err) {
+      refs.toast('Download failed', true);
+    }
+  }
+
   async function copyResult() {
     if (!img) return;
     try {
       // Safari requires the promise to be passed to ClipboardItem synchronously
-      const blobPromise = new Promise((res, rej) =>
-        base.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+      const blobPromise = annotatedPngBlob();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
       refs.toast('Copied to clipboard');
     } catch (err) {
       try {
-        const blob = await new Promise((res, rej) =>
-          base.toBlob(b => b ? res(b) : rej(new Error('toBlob failed')), 'image/png'));
+        const blob = await annotatedPngBlob();
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         refs.toast('Copied to clipboard');
       } catch (err2) {

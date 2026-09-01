@@ -1,6 +1,7 @@
 /* Full regression of the markup website (split shared-core version + crop).
  * Drives file://…/public/index.html in headless Chromium. */
 const { chromium } = require('playwright');
+const fs = require('fs');
 const OUT = require('os').tmpdir();
 const path = require('path');
 const { pathToFileURL } = require('url');
@@ -48,6 +49,8 @@ const baseSize = p => p.evaluate(() => {
   check('default size is L', await page.locator('.size-btn[data-size="L"]').evaluate(el => el.classList.contains('active')));
   check('gear menu present', await page.locator('#gearBtn').count() === 1);
   check('copy button present', await page.locator('#copyBtn').count() === 1);
+  check('download button present', await page.locator('#downloadBtn').count() === 1);
+  check('download disabled before image', await page.locator('#downloadBtn').isDisabled());
 
   // Load an image via synthetic paste
   await page.evaluate(async () => {
@@ -62,6 +65,7 @@ const baseSize = p => p.evaluate(() => {
   });
   await page.waitForSelector('#canvasWrap', { state: 'visible' });
   check('image loaded (canvas 1000x620)', JSON.stringify(await baseSize(page)) === '{"w":1000,"h":620}');
+  check('download enabled after image', await page.locator('#downloadBtn').isEnabled());
 
   // Draw every tool
   await draw(page, 'rect', 'L', [60, 60], [280, 200]);
@@ -183,6 +187,33 @@ const baseSize = p => p.evaluate(() => {
     document.getElementById('base').toBlob(b => r(!!b && b.size > 1000), 'image/png');
   }));
   check('toBlob works for copy', blobOk);
+
+  // Download: same annotated pixels as the canvas, saved as markup.png
+  const expectedB64 = await page.evaluate(() => new Promise((resolve, reject) => {
+    document.getElementById('base').toBlob(b => {
+      if (!b) { reject(new Error('toBlob failed')); return; }
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1]);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(b);
+    }, 'image/png');
+  }));
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('#downloadBtn'),
+  ]);
+  check('download filename is markup.png', download.suggestedFilename() === 'markup.png');
+  const dest = path.join(OUT, 'site-download-markup.png');
+  await download.saveAs(dest);
+  const downloaded = fs.readFileSync(dest);
+  check('download is a PNG', downloaded[0] === 0x89 && downloaded[1] === 0x50 && downloaded[2] === 0x4e && downloaded[3] === 0x47);
+  check('download matches annotated canvas', downloaded.equals(Buffer.from(expectedB64, 'base64')));
+
+  const [shortcutDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.keyboard.press('Control+Shift+KeyS'),
+  ]);
+  check('shortcut downloads markup.png', shortcutDownload.suggestedFilename() === 'markup.png');
 
   // Persistence: reload keeps handDrawn/autoPaste checkbox states
   await page.hover('#gearBtn');

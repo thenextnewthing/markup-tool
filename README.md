@@ -16,6 +16,7 @@ A markup tool in two forms that share one editor codebase:
 
 ### Website only
 - **Crop (C)** — drag the area to keep, ✓/Enter applies, ✕/Escape cancels; undo restores the previous crop
+- **Download** — save the annotated image as a PNG (`markup.png`) from the toolbar or ⇧⌘S
 - **Auto paste** — loads the clipboard image automatically when you open or return to the tab (gear menu)
 - **Download the Chrome extension** from the gear menu (markup-extension.zip)
 
