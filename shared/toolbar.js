@@ -51,12 +51,13 @@ window.MarkupToolbar = (() => {
    *   spacer: bool,                      // flex spacer before the right side
    *   options: [{id, title, desc}],      // gear-menu checkboxes
    *   menuLinks: [{href, download, title, desc}], // gear-menu download links
+   *   secondary: {id, icon, label, kbd, title}, // optional action next to primary (site: download)
    *   primary: {id, icon: 'copy'|'camera', label, kbd, title},
    *   exit: bool,                        // ✕ exit button (extension)
    *   toastHost: element,                // where to append the toast (default container.parentNode)
    *   trusted: fn(html) -> html          // optional TrustedTypes wrapper
    * }
-   * hooks: { editor, onPrimary(), onClear(), onExit(), onOption(id, checked) }
+   * hooks: { editor, onPrimary(), onSecondary(), onClear(), onExit(), onOption(id, checked) }
    */
   function build(container, config, hooks) {
     const pass = config.trusted || (s => s);
@@ -99,6 +100,11 @@ window.MarkupToolbar = (() => {
       html += `</div></div>`;
     }
 
+    if (config.secondary) {
+      html += `<button class="action-btn" id="${config.secondary.id}" title="${config.secondary.title || ''}" disabled>
+        ${ICONS[config.secondary.icon]} ${config.secondary.label}${config.secondary.kbd ? ` <span class="kbd">${config.secondary.kbd}</span>` : ''}
+      </button>`;
+    }
     html += `<button class="action-btn primary-btn" id="${config.primary.id}" title="${config.primary.title || ''}" disabled>
       ${ICONS[config.primary.icon]} ${config.primary.label}${config.primary.kbd ? ` <span class="kbd">${config.primary.kbd}</span>` : ''}
     </button>`;
@@ -188,11 +194,13 @@ window.MarkupToolbar = (() => {
     const undoBtn = container.querySelector('#undoBtn');
     const redoBtn = container.querySelector('#redoBtn');
     const clearBtn = container.querySelector('#clearBtn');
+    const secondaryBtn = config.secondary ? container.querySelector('#' + config.secondary.id) : null;
     const primaryBtn = container.querySelector('#' + config.primary.id);
     const exitBtn = container.querySelector('#exitBtn');
     undoBtn.addEventListener('click', () => editor.undo());
     redoBtn.addEventListener('click', () => editor.redo());
     clearBtn.addEventListener('click', () => hooks.onClear());
+    if (secondaryBtn) secondaryBtn.addEventListener('click', () => hooks.onSecondary());
     primaryBtn.addEventListener('click', () => hooks.onPrimary());
     if (exitBtn) exitBtn.addEventListener('click', () => hooks.onExit());
 
@@ -209,10 +217,11 @@ window.MarkupToolbar = (() => {
       if (extra) {
         clearBtn.disabled = !extra.canClear;
         primaryBtn.disabled = !extra.canPrimary;
+        if (secondaryBtn) secondaryBtn.disabled = !extra.canPrimary;
       }
     }
 
-    return { setActiveTool, setActiveSize, syncHistory, checkboxes, toast, toastAction, primaryBtn, clearBtn, undoBtn, redoBtn, exitBtn, toastEl };
+    return { setActiveTool, setActiveSize, syncHistory, checkboxes, toast, toastAction, primaryBtn, secondaryBtn, clearBtn, undoBtn, redoBtn, exitBtn, toastEl };
   }
 
   return { build };

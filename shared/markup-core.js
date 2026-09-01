@@ -18,7 +18,8 @@
  *   env.hasCrop            whether the crop tool is available
  *   env.onHistoryChange()  update undo/redo/etc. buttons
  *   env.onToolChange(t)    reflect the active tool in the toolbar
- *   env.onPrimary()        the big button action (site: copy, extension: capture)
+   *   env.onPrimary()        the big button action (site: copy, extension: capture)
+   *   env.onSecondary()      optional extra action (site: download PNG)
  *   env.toast(msg, isErr)
  *   env.exclusiveKeys      true in the extension: swallow handled keys before the page
  */
@@ -769,6 +770,9 @@ window.MarkupCore = (() => {
         handled = true;
       } else if (mod && e.shiftKey && e.code === 'KeyC') {
         env.onPrimary();
+        handled = true;
+      } else if (mod && e.shiftKey && e.code === 'KeyS' && env.onSecondary) {
+        env.onSecondary();
         handled = true;
       } else if (mod && e.code === 'KeyZ') {
         e.shiftKey ? redo() : undo();
