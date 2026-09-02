@@ -1,81 +1,40 @@
 # Andrew's Markup
 
-A paste / annotate / copy tool in two forms that share one editor:
+Paste a screenshot, draw on it, and copy or download the result.
 
-- **Website** — paste a screenshot, annotate it, then copy the result or download it as a PNG.
-- **Chrome extension** — draw with the same tools on any live web page, then capture from the top of the page to just below your lowest annotation, straight to the clipboard.
+Use a pen, highlighter, arrows, text, or boxes. There is also a Chrome extension that lets you draw on any live web page and capture that section.
 
-This repository is the source for both. The editor lives once in `shared/` and is copied into the website and the extension.
+## What you can do
 
-## Features (both surfaces)
+- Draw with a pen, highlighter, arrows, boxes, ovals, and text
+- Crop the picture to just the part you want
+- Copy the result, or download it as a PNG
+- Undo a mistake, or start over
+- Pick from eight colors and five sizes
+- Switch on a hand-drawn look — sketchy, a little wobbly. Turn it on from the gear menu and everything you’ve already drawn updates too
+- Click anything you’ve drawn to move or delete it
+- Type notes that stay readable on any background
 
-- Pen, highlighter, arrow, Skitch-style tapered arrow, text, box, and oval tools with keyboard shortcuts (P/H/A/S/T/R/O)
-- **Text** with a Skitch-style contrast halo (white outline on dark colors, dark on light) so it reads on any background; Enter starts a new line, and clicking elsewhere or pressing Escape finishes the text
-- **Click-to-grab** — with any tool active, clicking an object's stroke selects it: drag to move, Delete key or the red ✕ to remove; clicking empty space (even inside a box) draws as usual; undo/redo covers moves and deletes
-- 8 colors, 5 stroke sizes (S–XXL, keys 1–5, L default)
-- **Hand-drawn mode** — sketchy, bowed strokes with overshot corners; toggling restyles everything already drawn (in the gear menu)
-- Undo/redo (⌘Z / ⇧⌘Z), start over, primary action on ⇧⌘C
+On the website, a screenshot on your clipboard can load itself when you open or come back to the tab. That’s in the gear menu. You can also drop an image file onto the page.
 
-### Website only
+With the Chrome extension, your drawings stay on the part of the page you marked, even if you scroll. Capture takes a picture from the top of the page down to just below your lowest note, and puts it on your clipboard.
 
-- **Crop (C)** — drag the area to keep, ✓/Enter applies, ✕/Escape cancels; undo restores the previous crop
-- **Download** — save the annotated image as a PNG (`markup.png`) from the toolbar or ⇧⌘S
-- **Auto paste** — loads the clipboard image automatically when you open or return to the tab (gear menu)
+A few shortcuts, if you want them: **P** pen, **H** highlighter, **A** arrow, **T** text, **R** box, **C** crop. **⌘Z** undoes. **⇧⌘C** copies. **⇧⌘S** downloads.
 
-### Extension only
+## Try the website
 
-- Annotations anchor to the page: scroll and they stay on the section you drew them on; keep scrolling and drawing
-- **Capture** — scroll-and-stitch screenshot from the page top to just below the lowest annotation (fixed/sticky headers are hidden after the first chunk so they don't repeat), PNG to clipboard
-- Esc or ✕ exits markup mode; press the extension button again (or the suggested shortcut ⌥⇧M) to toggle
+In this folder, run `npm ci` and then `npm run sync`. That sets things up once. Then open `public/index.html` in your browser, paste a screenshot, and start drawing.
 
-## Run the website locally
+## Try the Chrome extension
 
-The website is static files in `public/`. There is no local-dev or Wrangler preview script; after a sync you can open the page in a browser.
+After that same one-time setup:
 
-```sh
-npm ci
-npm run sync
-```
+1. Open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and pick the `extension` folder in this repo.
+3. Pin **Andrew's Markup**, then click it on any page to start drawing. Click it again, or press Esc, to leave.
 
-Then open `public/index.html` in a browser. `npm run sync` is required after clone and after any edit to `shared/`, because `public/shared/` is a generated copy and is not in git.
+It only looks at the page after you click the button. It remembers whether you like the hand-drawn look.
 
-## Load the Chrome extension
+## If you want to change the code
 
-1. From this repo, run `npm ci` and `npm run sync` so `extension/shared/` is populated.
-2. Open `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and pick the `extension/` folder in this repo.
-3. Pin "Andrew's Markup" and click it on any page to enter markup mode. Click it again (or press Esc / ✕) to leave.
-
-After you change `shared/`, run `npm run sync` again and hit ⟳ on the extension in `chrome://extensions`.
-
-Permissions: `activeTab` + `scripting` (runs only when you click the button) and `storage` (remembers the hand-drawn setting). No debugger, no background access to your browsing.
-
-## How it's built
-
-```
-shared/     ← THE editor: markup-core.js (engine), toolbar.js (UI builder), toolbar.css
-public/     ← website: index.html (shell) + app.js (image/crop/copy glue) + synced shared/
-extension/  ← MV3 extension: manifest, background.js (inject + captureVisibleTab),
-              content.js (shadow-DOM overlay on the live page) + synced shared/
-scripts/    ← sync.mjs (copy shared/ into both), zip-extension.mjs (package a zip),
-              verify/ (headless-browser test harnesses)
-```
-
-Edit **only** `shared/` for editor changes. `public/shared/` and `extension/shared/` are gitignored copies. `npm run sync` refreshes them.
-
-`npm run build` (same as `npm run zip`) syncs the editor and packages `extension/` into `public/markup-extension.zip`. That zip is also gitignored; the website gear menu can serve it after a build.
-
-## Deploying the website
-
-The site is a Cloudflare Worker that serves the static files in `public/`. Pushing to `main` automatically builds and deploys the production Worker through Cloudflare Workers Builds. Pull requests and other branches produce preview versions without replacing production.
-
-For a deliberate deploy from your machine, run `npm run deploy`. That builds the extension zip and runs Wrangler. The Cloudflare edge cache can serve the previous version for about a minute after a deploy.
-
-## Tests
-
-```sh
-npm test
-```
-
-That syncs `shared/`, then runs both end-to-end suites (`scripts/verify/verify-site.js` and `scripts/verify/verify-extension.js`). Run either script directly when you are working on only one surface.
-
-Both use headless Chromium via the repo's Playwright dependency. They write screenshots to the OS temporary directory. The extension harness loads a test build with host permissions added, because automation cannot produce the `activeTab` click.
+Edit the files in `shared/`. Run `npm run sync` so the website and the extension pick up your changes. Run `npm test` to check that things still work.
