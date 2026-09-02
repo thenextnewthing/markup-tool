@@ -1,9 +1,11 @@
-# Andrew's Markup — paste, annotate, copy
+# Andrew's Markup
 
-A markup tool in two forms that share one editor codebase:
+A paste / annotate / copy tool in two forms that share one editor:
 
-- **Website** — https://markup.codeshiftagent.com/ — paste a screenshot, annotate, copy the result.
-- **Chrome extension** — draw with the same tools directly on any live web page, then capture the page from the top to just below your lowest annotation, straight to the clipboard.
+- **Website** — paste a screenshot, annotate it, then copy the result or download it as a PNG.
+- **Chrome extension** — draw with the same tools on any live web page, then capture from the top of the page to just below your lowest annotation, straight to the clipboard.
+
+This repository is the source for both. The editor lives once in `shared/` and is copied into the website and the extension.
 
 ## Features (both surfaces)
 
@@ -15,22 +17,35 @@ A markup tool in two forms that share one editor codebase:
 - Undo/redo (⌘Z / ⇧⌘Z), start over, primary action on ⇧⌘C
 
 ### Website only
+
 - **Crop (C)** — drag the area to keep, ✓/Enter applies, ✕/Escape cancels; undo restores the previous crop
 - **Download** — save the annotated image as a PNG (`markup.png`) from the toolbar or ⇧⌘S
 - **Auto paste** — loads the clipboard image automatically when you open or return to the tab (gear menu)
-- **Download the Chrome extension** from the gear menu (markup-extension.zip)
 
 ### Extension only
+
 - Annotations anchor to the page: scroll and they stay on the section you drew them on; keep scrolling and drawing
 - **Capture** — scroll-and-stitch screenshot from the page top to just below the lowest annotation (fixed/sticky headers are hidden after the first chunk so they don't repeat), PNG to clipboard
-- Esc or ✕ exits markup mode; press the extension button again to toggle
+- Esc or ✕ exits markup mode; press the extension button again (or the suggested shortcut ⌥⇧M) to toggle
 
-## Installing the extension
+## Run the website locally
 
-1. Download `markup-extension.zip` from the site's gear menu (or grab the `extension/` folder from this repo — run `npm run sync` first).
-2. Unzip it somewhere permanent.
-3. Open `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and pick the unzipped folder.
-4. Pin "Andrew's Markup" and click it on any page to enter markup mode. Click it again (or press Esc / ✕) to leave.
+The website is static files in `public/`. There is no local-dev or Wrangler preview script; after a sync you can open the page in a browser.
+
+```sh
+npm ci
+npm run sync
+```
+
+Then open `public/index.html` in a browser. `npm run sync` is required after clone and after any edit to `shared/`, because `public/shared/` is a generated copy and is not in git.
+
+## Load the Chrome extension
+
+1. From this repo, run `npm ci` and `npm run sync` so `extension/shared/` is populated.
+2. Open `chrome://extensions`, turn on **Developer mode** (top right), click **Load unpacked**, and pick the `extension/` folder in this repo.
+3. Pin "Andrew's Markup" and click it on any page to enter markup mode. Click it again (or press Esc / ✕) to leave.
+
+After you change `shared/`, run `npm run sync` again and hit ⟳ on the extension in `chrome://extensions`.
 
 Permissions: `activeTab` + `scripting` (runs only when you click the button) and `storage` (remembers the hand-drawn setting). No debugger, no background access to your browsing.
 
@@ -41,29 +56,26 @@ shared/     ← THE editor: markup-core.js (engine), toolbar.js (UI builder), to
 public/     ← website: index.html (shell) + app.js (image/crop/copy glue) + synced shared/
 extension/  ← MV3 extension: manifest, background.js (inject + captureVisibleTab),
               content.js (shadow-DOM overlay on the live page) + synced shared/
-scripts/    ← sync.mjs (copy shared/ into both), zip-extension.mjs (package the zip),
+scripts/    ← sync.mjs (copy shared/ into both), zip-extension.mjs (package a zip),
               verify/ (headless-browser test harnesses)
 ```
 
-Edit **only** `shared/` for editor changes — `public/shared/` and `extension/shared/` are gitignored copies. `npm run sync` refreshes them (then hit ⟳ on the extension in `chrome://extensions`).
+Edit **only** `shared/` for editor changes. `public/shared/` and `extension/shared/` are gitignored copies. `npm run sync` refreshes them.
+
+`npm run build` (same as `npm run zip`) syncs the editor and packages `extension/` into `public/markup-extension.zip`. That zip is also gitignored; the website gear menu can serve it after a build.
 
 ## Deploying the website
 
-Pushing to `main` automatically builds and deploys the production Worker through
-Cloudflare Workers Builds. Pull requests and other branches produce preview
-versions without replacing production.
+The site is a Cloudflare Worker that serves the static files in `public/`. Pushing to `main` automatically builds and deploys the production Worker through Cloudflare Workers Builds. Pull requests and other branches produce preview versions without replacing production.
 
-For a deliberate local deployment, run `npm run deploy`. This syncs the shared
-editor, rebuilds the extension zip, and runs Wrangler.
+For a deliberate deploy from your machine, run `npm run deploy`. That builds the extension zip and runs Wrangler. The Cloudflare edge cache can serve the previous version for about a minute after a deploy.
 
-The Cloudflare edge cache can serve the old version for ~a minute after a deploy.
+## Tests
 
-## Verifying changes
+```sh
+npm test
+```
 
-Run `npm test` for both end-to-end suites, or run either script directly when
-working on only one surface.
+That syncs `shared/`, then runs both end-to-end suites (`scripts/verify/verify-site.js` and `scripts/verify/verify-extension.js`). Run either script directly when you are working on only one surface.
 
-Both run headless Chromium via the repo's Playwright dependency (see
-`.claude/skills/verify/SKILL.md` for the underlying patterns; the extension
-harness loads a test build with host permissions added, since automation cannot
-produce the activeTab click).
+Both use headless Chromium via the repo's Playwright dependency. They write screenshots to the OS temporary directory. The extension harness loads a test build with host permissions added, because automation cannot produce the `activeTab` click.
