@@ -97,7 +97,6 @@ const baseSize = p => p.evaluate(() => {
   const hx = 500 * scale.sx, hy = 450 * scale.sy;
   const onLine = await sample(hx, hy);
   const offLine = await sample(hx, hy + 22);
-  console.log('line level on/off', onLine, offLine);
   check('shift snaps a line level', onLine[0] > 200 && onLine[1] < 120 && offLine[1] > 160);
   await page.keyboard.up('Shift');
   const lined = await baseData(page);
@@ -121,7 +120,6 @@ const baseSize = p => p.evaluate(() => {
   const vx = 120 * scale.sx, vy = 490 * scale.sy;
   const onVert = await sample(vx, vy);
   const offVert = await sample(vx + 28, vy);
-  console.log('line upright on/off', onVert, offVert);
   check('shift snaps a line upright', onVert[0] > 200 && onVert[1] < 120 && offVert[1] > 160);
   await page.keyboard.press('Meta+z');
   check('line tests restored the image', await baseData(page) === blank);
@@ -139,7 +137,6 @@ const baseSize = p => p.evaluate(() => {
   await page.mouse.up();
   const once = await sample(200 * scale.sx, 460 * scale.sy);
   const twice = await sample(520 * scale.sx, 460 * scale.sy);
-  console.log('highlighter once/twice', once, twice, 'dist', rgbDist(once, twice));
   check('highlighter is yellow', once[0] > 220 && once[1] > 190 && once[2] < 200 && once[1] > once[2] + 30);
   check('one highlighter stroke does not darken where it overlaps', rgbDist(once, twice) < 36);
   await page.locator('.swatch[data-color="#3b82f6"]').click();
@@ -149,7 +146,6 @@ const baseSize = p => p.evaluate(() => {
   for (let i = 1; i <= 6; i++) await page.mouse.move(box0.x + 80 + i * 40, box0.y + 510);
   await page.mouse.up();
   const blue = await sample(160 * scale.sx, 510 * scale.sy);
-  console.log('highlighter blue', blue);
   check('highlighter uses the picked color', blue[2] > blue[0] + 30 && blue[2] > 210);
   await page.keyboard.press('Meta+z');
   await page.keyboard.press('Meta+z');
@@ -192,6 +188,7 @@ const baseSize = p => p.evaluate(() => {
   const beforeEscapeText = await baseData(page);
   await page.mouse.click(box.x + 850, box.y + 500);
   await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
   await page.keyboard.type('Escape commits');
   await page.keyboard.press('Escape');
   check('Escape commits text',
@@ -314,21 +311,27 @@ const baseSize = p => p.evaluate(() => {
 
   await page.click('#copyBtn');
   await page.waitForFunction(() => (document.getElementById('toastMsg') || {}).textContent === 'Copied to clipboard');
-  const copyMatches = await page.evaluate(async () => {
+  const copyResult = await page.evaluate(async () => {
     const items = await navigator.clipboard.read();
     const item = items.find(i => i.types.includes('image/png'));
-    if (!item) return false;
-    const blob = await item.getType('image/png');
-    const copied = new Uint8Array(await blob.arrayBuffer());
-    const canvasBlob = await new Promise((resolve, reject) => {
-      document.getElementById('base').toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
-    });
-    const expected = new Uint8Array(await canvasBlob.arrayBuffer());
-    if (copied.length !== expected.length) return false;
-    for (let i = 0; i < copied.length; i++) if (copied[i] !== expected[i]) return false;
-    return true;
+    if (!item) return 'no-png:' + items.map(i => i.types.join('+')).join(',');
+    const bmp = await createImageBitmap(await item.getType('image/png'));
+    const base = document.getElementById('base');
+    if (bmp.width !== base.width || bmp.height !== base.height) {
+      return `size ${bmp.width}x${bmp.height} vs ${base.width}x${base.height}`;
+    }
+    const c = document.createElement('canvas');
+    c.width = bmp.width;
+    c.height = bmp.height;
+    const g = c.getContext('2d');
+    g.drawImage(bmp, 0, 0);
+    const a = g.getImageData(0, 0, c.width, c.height).data;
+    const b = base.getContext('2d').getImageData(0, 0, base.width, base.height).data;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return 'pixel-mismatch';
+    return 'ok';
   });
-  check('copy puts the annotated PNG on the clipboard', copyMatches);
+  if (copyResult !== 'ok') console.log('copy result:', copyResult);
+  check('copy puts the annotated PNG on the clipboard', copyResult === 'ok');
 
   const [shortcutDownload] = await Promise.all([
     page.waitForEvent('download'),

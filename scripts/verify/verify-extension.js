@@ -113,6 +113,7 @@ function check(name, cond) {
     document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
   await page.mouse.click(900, 500);
   await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
   await page.keyboard.type('Escape commits');
   await page.keyboard.press('Escape');
   const afterEscapeText = await page.evaluate(() =>
