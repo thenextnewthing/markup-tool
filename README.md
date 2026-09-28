@@ -2,11 +2,11 @@
 
 Paste a screenshot, draw on it, and copy or download the result.
 
-Use a pen, highlighter, arrows, text, or boxes. There is also a Chrome extension that lets you draw on any live web page and capture that section.
+Use a pen, highlighter, lines, arrows, text, or boxes. There is also a Chrome extension that lets you draw on any live web page and capture that section.
 
 ## What you can do
 
-- Draw with a pen, highlighter, arrows, boxes, ovals, and text
+- Draw with a pen, highlighter, straight lines, arrows, boxes, ovals, and text
 - Crop the picture to just the part you want
 - Copy the result, or download it as a PNG
 - Undo a mistake, or start over
@@ -19,7 +19,7 @@ On the website, a screenshot on your clipboard can load itself when you open or 
 
 With the Chrome extension, your drawings stay on the part of the page you marked, even if you scroll. Capture takes a picture from the top of the page down to just below your lowest note, and puts it on your clipboard.
 
-A few shortcuts, if you want them: **P** pen, **H** highlighter, **A** arrow, **T** text, **R** box, **C** crop. **⌘Z** undoes. **⇧⌘C** copies. **⇧⌘S** downloads.
+A few shortcuts, if you want them: **P** pen, **H** highlighter, **L** line, **A** arrow, **T** text, **R** box, **C** crop. Hold **Shift** while you draw a line and it snaps level, straight up and down, or on a diagonal. **⌘Z** undoes. **⇧⌘C** copies. **⇧⌘S** downloads.
 
 ## Try the website
 

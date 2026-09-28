@@ -60,6 +60,7 @@
     hasCrop: true,
     onHistoryChange,
     onToolChange: t => refs && refs.setActiveTool(t),
+    onColorChange: c => refs && refs.setActiveColor(c),
     onSizeChange: k => refs && refs.setActiveSize(k),
     onPrimary: () => copyResult(),
     onSecondary: () => downloadResult(),
@@ -71,10 +72,10 @@
 
   refs = MarkupToolbar.build(document.getElementById('toolbar'), {
     brand: true,
-    tools: ['pen', 'highlighter', 'arrow', 'sarrow', 'text', 'rect', 'oval', 'crop'],
+    tools: ['pen', 'highlighter', 'line', 'arrow', 'sarrow', 'text', 'rect', 'oval', 'crop'],
     spacer: true,
     options: [
-      { id: 'handDrawnCb', title: 'Hand-drawn', desc: 'Gives arrows, boxes &amp; ovals a wobbly, sketched-by-hand look instead of perfect geometry. Checking or unchecking it also restyles everything already drawn on the image.' },
+      { id: 'handDrawnCb', title: 'Hand-drawn', desc: 'Gives lines, arrows, boxes, and ovals a wobbly, sketched-by-hand look instead of perfect geometry. Checking or unchecking it also restyles everything already drawn on the image.' },
       { id: 'autoPasteCb', title: 'Auto paste', desc: 'Automatically loads the image from your clipboard the moment you open or switch back to this tab — take a screenshot, come here, and it\'s already on the canvas. No need to press ⌘V.' },
     ],
     menuLinks: [

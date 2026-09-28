@@ -29,6 +29,10 @@ window.MarkupCore = (() => {
   const COLORS = ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#a855f7', '#111111', '#ffffff'];
   const SIZES = { S: 2.5, M: 5, L: 10, XL: 18, XXL: 30 };
   const FONTS = { S: 18, M: 26, L: 38, XL: 56, XXL: 80 };
+  const HIGHLIGHTER_YELLOW = '#facc15';
+  const HIGHLIGHTER_ALPHA = 0.4;
+  // A marker tip is much wider than the pen at the same size step.
+  const HIGHLIGHTER_WIDTH_SCALE = 3.2;
 
   function createEditor(env) {
     let shapes = [];           // committed shapes
@@ -36,6 +40,9 @@ window.MarkupCore = (() => {
     let future = [];           // redo snapshots
     let tool = 'pen';
     let color = COLORS[0];
+    // Highlighter remembers its own color so picking yellow for it doesn't
+    // repaint the pen, and switching back doesn't forget a custom marker color.
+    let highlighterColor = HIGHLIGHTER_YELLOW;
     let sizeKey = 'L';
     let drawing = null;        // in-progress shape
     let selected = null;       // shape grabbed by clicking it
@@ -54,14 +61,27 @@ window.MarkupCore = (() => {
     }
     function dropLastSnapshot() { history.pop(); }
 
+    function activeColor() {
+      return tool === 'highlighter' ? highlighterColor : color;
+    }
+
+    function strokeWidth(forTool) {
+      const base = SIZES[sizeKey];
+      return forTool === 'highlighter' ? base * HIGHLIGHTER_WIDTH_SCALE : base;
+    }
+
     function setTool(t) {
       tool = t;
       if (t !== 'crop') cancelCrop(false);
+      if (env.onColorChange) env.onColorChange(activeColor());
       env.onToolChange(t);
       overlay.style.cursor = t === 'text' ? 'text' : 'crosshair';
     }
 
-    function setColor(c) { color = c; }
+    function setColor(c) {
+      if (tool === 'highlighter') highlighterColor = c;
+      else color = c;
+    }
     function setSize(k) {
       sizeKey = k;
       if (env.onSizeChange) env.onSizeChange(k);
@@ -141,8 +161,16 @@ window.MarkupCore = (() => {
 
       if (selected) { selected = null; drawSel(); }
       overlay.setPointerCapture(e.pointerId);
-      const lw = SIZES[sizeKey] * (tool === 'highlighter' ? 2.4 : 1);
-      drawing = { tool, color, lw, x0: p.x, y0: p.y, x1: p.x, y1: p.y, points: [p], seed: (Math.random() * 2 ** 31) | 0 };
+      const freehand = tool === 'pen' || tool === 'highlighter';
+      drawing = {
+        tool,
+        color: activeColor(),
+        lw: strokeWidth(tool),
+        x0: p.x, y0: p.y, x1: p.x, y1: p.y,
+        rawX: p.x, rawY: p.y,
+        points: freehand ? [p] : undefined,
+        seed: (Math.random() * 2 ** 31) | 0,
+      };
       renderShape(env.overlayCtx(), drawing);
     });
 
@@ -173,8 +201,16 @@ window.MarkupCore = (() => {
         return;
       }
       const p = env.toPoint(e);
-      drawing.x1 = p.x;
-      drawing.y1 = p.y;
+      drawing.rawX = p.x;
+      drawing.rawY = p.y;
+      if (drawing.tool === 'line' && e.shiftKey) {
+        const snapped = snapLineEnd(drawing.x0, drawing.y0, p.x, p.y);
+        drawing.x1 = snapped.x;
+        drawing.y1 = snapped.y;
+      } else {
+        drawing.x1 = p.x;
+        drawing.y1 = p.y;
+      }
       if (drawing.tool === 'pen' || drawing.tool === 'highlighter') drawing.points.push(p);
       env.clearOverlay();
       renderShape(env.overlayCtx(), drawing);
@@ -327,6 +363,30 @@ window.MarkupCore = (() => {
       return { x: minx - pad, y: miny - pad, w: maxx - minx + pad * 2, h: maxy - miny + pad * 2 };
     }
 
+    // Hold Shift while drawing a line to lock it to 0°, 45°, or 90°.
+    function snapLineEnd(x0, y0, x1, y1) {
+      const dx = x1 - x0, dy = y1 - y0;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.5) return { x: x1, y: y1 };
+      const step = Math.PI / 4;
+      const q = Math.atan2(dy, dx) / step;
+      // Round half away from zero so the ±22.5° boundaries are symmetric.
+      const n = q >= 0 ? Math.round(q) : -Math.round(-q);
+      const angle = n * step;
+      return { x: x0 + Math.cos(angle) * len, y: y0 + Math.sin(angle) * len };
+    }
+
+    function applyShiftSnap(shift) {
+      if (!drawing || drawing.tool !== 'line') return;
+      const end = shift
+        ? snapLineEnd(drawing.x0, drawing.y0, drawing.rawX, drawing.rawY)
+        : { x: drawing.rawX, y: drawing.rawY };
+      drawing.x1 = end.x;
+      drawing.y1 = end.y;
+      env.clearOverlay();
+      renderShape(env.overlayCtx(), drawing);
+    }
+
     function distToSeg(p, ax, ay, bx, by) {
       const dx = bx - ax, dy = by - ay;
       const l2 = dx * dx + dy * dy;
@@ -353,6 +413,8 @@ window.MarkupCore = (() => {
             if (distToSeg(p, pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y) < tol) return true;
           return false;
         }
+        case 'line':
+          return distToSeg(p, s.x0, s.y0, s.x1, s.y1) < tol;
         case 'arrow':
           return distToSeg(p, s.x0, s.y0, s.x1, s.y1) < tol ||
                  Math.hypot(p.x - s.x1, p.y - s.y1) < Math.max(tol, s.lw * 3.2);
@@ -560,34 +622,97 @@ window.MarkupCore = (() => {
       ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
     }
 
+    function traceStroke(ctx, pts) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 1) {
+        ctx.lineTo(pts[0].x + .01, pts[0].y + .01);
+        return;
+      }
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i + 1].x) / 2;
+        const my = (pts[i].y + pts[i + 1].y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+      }
+      ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    }
+
+    // One highlighter stroke is painted opaque on a scratch canvas, then
+    // stamped on at 40% opacity. Crossings inside that stroke stay one color;
+    // a second stroke still darkens where it overlaps the first.
+    let inkCanvas = null;
+    function inkLayer(w, h) {
+      if (!inkCanvas) inkCanvas = document.createElement('canvas');
+      if (inkCanvas.width < w) inkCanvas.width = w;
+      if (inkCanvas.height < h) inkCanvas.height = h;
+      return inkCanvas;
+    }
+
+    function renderHighlighter(ctx, s) {
+      const pts = s.points;
+      if (!pts || !pts.length) return;
+      let minx = pts[0].x, miny = pts[0].y, maxx = minx, maxy = miny;
+      for (let i = 1; i < pts.length; i++) {
+        const q = pts[i];
+        if (q.x < minx) minx = q.x;
+        if (q.y < miny) miny = q.y;
+        if (q.x > maxx) maxx = q.x;
+        if (q.y > maxy) maxy = q.y;
+      }
+      const pad = s.lw * 0.5 + 2;
+      const x = minx - pad;
+      const y = miny - pad;
+      const w = Math.max(1, maxx - minx + pad * 2);
+      const h = Math.max(1, maxy - miny + pad * 2);
+      const tr = ctx.getTransform();
+      const scale = Math.max(1, Math.hypot(tr.a, tr.b));
+      const pw = Math.max(1, Math.ceil(w * scale));
+      const ph = Math.max(1, Math.ceil(h * scale));
+      const off = inkLayer(pw, ph);
+      const o = off.getContext('2d');
+      o.setTransform(1, 0, 0, 1, 0, 0);
+      o.clearRect(0, 0, pw, ph);
+      o.setTransform(scale, 0, 0, scale, -x * scale, -y * scale);
+      o.globalAlpha = 1;
+      o.globalCompositeOperation = 'source-over';
+      o.strokeStyle = s.color;
+      o.lineWidth = s.lw;
+      o.lineCap = 'square';
+      o.lineJoin = 'bevel';
+      traceStroke(o, pts);
+      o.stroke();
+      ctx.save();
+      ctx.globalAlpha = HIGHLIGHTER_ALPHA;
+      ctx.drawImage(off, 0, 0, pw, ph, x, y, w, h);
+      ctx.restore();
+    }
+
     function renderShape(ctx, s) {
+      if (s.tool === 'highlighter') {
+        renderHighlighter(ctx, s);
+        return;
+      }
       ctx.save();
       ctx.strokeStyle = s.color;
       ctx.fillStyle = s.color;
       ctx.lineWidth = s.lw;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      if (s.tool === 'highlighter') {
-        ctx.globalAlpha = 0.4;
-        ctx.lineCap = 'butt';
-      }
       switch (s.tool) {
-        case 'pen':
-        case 'highlighter': {
-          ctx.beginPath();
-          const pts = s.points;
-          ctx.moveTo(pts[0].x, pts[0].y);
-          if (pts.length === 1) {
-            ctx.lineTo(pts[0].x + .01, pts[0].y + .01);
-          } else {
-            for (let i = 1; i < pts.length - 1; i++) {
-              const mx = (pts[i].x + pts[i + 1].x) / 2;
-              const my = (pts[i].y + pts[i + 1].y) / 2;
-              ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
-            }
-            const last = pts[pts.length - 1];
-            ctx.lineTo(last.x, last.y);
+        case 'pen': {
+          traceStroke(ctx, s.points);
+          ctx.stroke();
+          break;
+        }
+        case 'line': {
+          const { x0, y0, x1, y1 } = s;
+          if (handDrawn) {
+            sketchPasses(ctx, s, (rng, r) => sketchLine(ctx, rng, x0, y0, x1, y1, r));
+            break;
           }
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
           ctx.stroke();
           break;
         }
@@ -752,6 +877,10 @@ window.MarkupCore = (() => {
 
     function onKeydown(e) {
       if (isTypingTarget(e)) return;
+      if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && drawing && drawing.tool === 'line') {
+        applyShiftSnap(true);
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
       let handled = false;
 
@@ -788,6 +917,7 @@ window.MarkupCore = (() => {
         switch (e.code) {
           case 'KeyP': setTool('pen'); handled = true; break;
           case 'KeyH': setTool('highlighter'); handled = true; break;
+          case 'KeyL': setTool('line'); handled = true; break;
           case 'KeyA': setTool('arrow'); handled = true; break;
           case 'KeyS': setTool('sarrow'); handled = true; break;
           case 'KeyT': setTool('text'); handled = true; break;
@@ -801,7 +931,11 @@ window.MarkupCore = (() => {
         if (env.exclusiveKeys) e.stopPropagation();
       }
     }
+    function onKeyup(e) {
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') applyShiftSnap(false);
+    }
     window.addEventListener('keydown', onKeydown, !!env.exclusiveKeys);
+    window.addEventListener('keyup', onKeyup, !!env.exclusiveKeys);
 
     function annotationsBottom() {
       let bottom = 0;
@@ -814,6 +948,7 @@ window.MarkupCore = (() => {
 
     function destroy() {
       window.removeEventListener('keydown', onKeydown, !!env.exclusiveKeys);
+      window.removeEventListener('keyup', onKeyup, !!env.exclusiveKeys);
       closeTextEditor(false);
     }
 
