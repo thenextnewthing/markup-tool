@@ -40,7 +40,7 @@
     box-shadow: 0 8px 40px rgba(0,0,0,.5);
   }
   canvas { display: block; border-radius: 4px; }
-  #overlay { position: absolute; top: 0; left: 0; }
+  #overlay { position: absolute; top: 0; left: 0; touch-action: none; }
 
   /* ---------- Empty state ---------- */
   #empty {
@@ -92,7 +92,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
     </div>
     <div class="big">Paste a screenshot to start &nbsp;<span class="kbd">⌘V</span></div>
-    <p>Annotate with pen, highlighter, arrows, boxes, ovals, text &amp; crop.<br>
+    <p>Annotate with pen, highlighter, lines, arrows, boxes, ovals, text &amp; crop.<br>
     Click anything you've drawn to grab it — drag to move, ✕ or Delete removes it.<br>
     Then hit <span class="kbd">⇧⌘C</span> to copy or <span class="kbd">⇧⌘S</span> to download.<br>
     You can also drag &amp; drop an image file here.</p>

@@ -52,7 +52,7 @@ function check(name, cond) {
   await page.waitForSelector('#__markupHost', { state: 'attached' });
   await page.waitForSelector('#captureBtn', { state: 'visible' });
   check('markup mode activates (host + toolbar)', true);
-  check('7 tools, no crop', await page.locator('.tool-btn').count() === 7);
+  check('8 tools, no crop', await page.locator('.tool-btn').count() === 8);
 
   // Draw an oval over SECTION 0 (viewport coords -> doc coords via scroll 0)
   await page.click('.tool-btn[data-tool="oval"]');
@@ -89,6 +89,11 @@ function check(name, cond) {
   await page.evaluate(() => document.getElementById('pageInput').blur());
   await page.keyboard.press('r');
   check('R selects rect tool', (await page.locator('.tool-btn.active').getAttribute('data-tool')) === 'rect');
+  await page.keyboard.press('l');
+  check('L selects line', (await page.locator('.tool-btn.active').getAttribute('data-tool')) === 'line');
+  await page.keyboard.press('h');
+  check('H selects highlighter', (await page.locator('.tool-btn.active').getAttribute('data-tool')) === 'highlighter');
+  check('highlighter defaults to yellow', (await page.locator('.swatch.active').getAttribute('data-color')) === '#facc15');
 
   // Text tool with halo on the live page
   await page.click('.tool-btn[data-tool="text"]');
@@ -108,6 +113,7 @@ function check(name, cond) {
     document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
   await page.mouse.click(900, 500);
   await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
   await page.keyboard.type('Escape commits');
   await page.keyboard.press('Escape');
   const afterEscapeText = await page.evaluate(() =>

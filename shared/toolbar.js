@@ -6,7 +6,8 @@ window.MarkupToolbar = (() => {
 
   const TOOL_DEFS = {
     pen: { title: 'Pen (P)', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>' },
-    highlighter: { title: 'Highlighter (H)', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>' },
+    highlighter: { title: 'Highlighter (H) — wide translucent marker', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"/><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>' },
+    line: { title: 'Line (L) — hold Shift to snap level, upright, or 45°', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/></svg>' },
     arrow: { title: 'Arrow (A)', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>' },
     sarrow: { title: 'Skitch arrow (S)', svg: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4.5 20.5 L15.6 10.9 L17.5 12.8 L20 4 L11.2 6.5 L13.1 8.4 L3.5 19.5 Z"/></svg>' },
     text: { title: 'Text (T) — click where you want it, type, click elsewhere or press Esc to finish', svg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>' },
@@ -176,6 +177,7 @@ window.MarkupToolbar = (() => {
     CORE.COLORS.forEach((c, i) => {
       const b = document.createElement('button');
       b.className = 'swatch' + (i === 0 ? ' active' : '');
+      b.dataset.color = c;
       b.style.background = c;
       b.title = c;
       b.addEventListener('click', () => {
@@ -189,6 +191,11 @@ window.MarkupToolbar = (() => {
     sizeBtns.forEach(b => b.addEventListener('click', () => editor.setSize(b.dataset.size)));
     function setActiveSize(k) {
       sizeBtns.forEach(x => x.classList.toggle('active', x.dataset.size === k));
+    }
+
+    function setActiveColor(c) {
+      const want = String(c).toLowerCase();
+      [...colorsEl.children].forEach(x => x.classList.toggle('active', x.dataset.color === want));
     }
 
     const undoBtn = container.querySelector('#undoBtn');
@@ -221,7 +228,7 @@ window.MarkupToolbar = (() => {
       }
     }
 
-    return { setActiveTool, setActiveSize, syncHistory, checkboxes, toast, toastAction, primaryBtn, secondaryBtn, clearBtn, undoBtn, redoBtn, exitBtn, toastEl };
+    return { setActiveTool, setActiveSize, setActiveColor, syncHistory, checkboxes, toast, toastAction, primaryBtn, secondaryBtn, clearBtn, undoBtn, redoBtn, exitBtn, toastEl };
   }
 
   return { build };

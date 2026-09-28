@@ -26,7 +26,7 @@ upload the new zip in the dev console — installs update automatically.
 Draw on any web page — arrows, boxes, text with halo — then capture from the top to your lowest note, straight to the clipboard.
 
 **Description:**
-Press the button (or ⌥⇧M) and a markup toolbar appears over the page you're on. Draw with pen, highlighter, two arrow styles (including a Skitch-style tapered arrow), boxes, ovals, and text with a contrast halo that stays readable on any background. Annotations stick to the page — scroll and they stay where you drew them, and you can keep scrolling and drawing.
+Press the button (or ⌥⇧M) and a markup toolbar appears over the page you're on. Draw with pen, highlighter, straight lines, two arrow styles (including a Skitch-style tapered arrow), boxes, ovals, and text with a contrast halo that stays readable on any background. Annotations stick to the page — scroll and they stay where you drew them, and you can keep scrolling and drawing.
 
 Press Capture (⇧⌘C) and the extension screenshots the page from the very top to just below your lowest annotation, with your drawings included, and puts the PNG on your clipboard — ready to paste anywhere.
 

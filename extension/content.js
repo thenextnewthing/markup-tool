@@ -114,6 +114,7 @@
       if (refs) refs.syncHistory(editor.historyLens(), { canClear: editor.hasShapes(), canPrimary: true });
     },
     onToolChange: t => refs && refs.setActiveTool(t),
+    onColorChange: c => refs && refs.setActiveColor(c),
     onSizeChange: k => refs && refs.setActiveSize(k),
     onPrimary: () => capture(),
     toast: (m, isErr) => refs && refs.toast(m, isErr),
@@ -297,10 +298,10 @@
 
     refs = MarkupToolbar.build(toolbarEl, {
       brand: false,
-      tools: ['pen', 'highlighter', 'arrow', 'sarrow', 'text', 'rect', 'oval'],
+      tools: ['pen', 'highlighter', 'line', 'arrow', 'sarrow', 'text', 'rect', 'oval'],
       spacer: false,
       options: [
-        { id: 'handDrawnCb', title: 'Hand-drawn', desc: 'Gives arrows, boxes &amp; ovals a wobbly, sketched-by-hand look instead of perfect geometry. Toggling restyles everything already drawn on the page.' },
+        { id: 'handDrawnCb', title: 'Hand-drawn', desc: 'Gives lines, arrows, boxes, and ovals a wobbly, sketched-by-hand look instead of perfect geometry. Toggling restyles everything already drawn on the page.' },
       ],
       primary: { id: 'captureBtn', icon: 'camera', label: 'Capture', kbd: '⇧⌘C', title: 'Capture the page from the top to just below your lowest annotation, straight to the clipboard' },
       exit: true,
