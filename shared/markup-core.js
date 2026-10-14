@@ -85,6 +85,24 @@ window.MarkupCore = (() => {
     function setSize(k) {
       sizeKey = k;
       if (env.onSizeChange) env.onSizeChange(k);
+      resizeSelected();
+    }
+
+    // A size pick also restyles the selected object (undoable).
+    function resizeSelected() {
+      if (!selected || !shapes.includes(selected)) return;
+      const next = { ...selected };
+      if (selected.tool === 'text') next.fontSize = FONTS[sizeKey];
+      else next.lw = strokeWidth(selected.tool);
+      if (next.lw === selected.lw && next.fontSize === selected.fontSize) return;
+      if (selected.points) next.points = selected.points.map(q => ({ x: q.x, y: q.y }));
+      delete next._delBtn;
+      snapshot();
+      shapes[shapes.indexOf(selected)] = next;
+      selected = next;
+      redrawBase();
+      drawSel();
+      env.onHistoryChange();
     }
 
     function setHandDrawn(v) {
