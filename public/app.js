@@ -156,7 +156,9 @@
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
-        handleBlob(item.getAsFile());
+        const f = item.getAsFile();
+        handleBlob(f);
+        if (f && window.MarkupAutoPaste) MarkupAutoPaste.blobSig(f).then(MarkupAutoPaste.setLastSig);
         return;
       }
     }
@@ -216,30 +218,56 @@
   }
 
   // ---------- Auto paste ----------
-  let autoPaste = localStorage.getItem('autoPaste') === '1';
+  // On unless explicitly turned off (a missing/cleared setting used to silently disable it).
+  let autoPaste = localStorage.getItem('autoPaste') !== '0';
   refs.checkboxes.autoPasteCb.checked = autoPaste;
 
+  // Fingerprint of the last image we loaded or copied, so returning to the tab
+  // only loads a *new* clipboard image (e.g. a fresh screenshot).
+  let lastSig = null;
+  async function blobSig(blob) {
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let h = 2166136261;
+    const step = Math.max(1, Math.floor(buf.length / 4096));
+    for (let i = 0; i < buf.length; i += step) h = Math.imul(h ^ buf[i], 16777619);
+    return buf.length + ':' + (h >>> 0);
+  }
+
+  let pasting = false;
   async function tryAutoPaste() {
-    if (img || !navigator.clipboard || !navigator.clipboard.read) return;
+    if (pasting || !autoPaste || !navigator.clipboard || !navigator.clipboard.read) return;
+    if (document.visibilityState === 'hidden' || !document.hasFocus()) return;
+    // never throw away annotations the user is working on
+    if (img && editor.hasShapes()) return;
+    pasting = true;
     try {
       const items = await navigator.clipboard.read();
       for (const item of items) {
         const type = item.types.find(t => t.startsWith('image/'));
-        if (type) {
-          handleBlob(await item.getType(type));
-          return;
-        }
+        if (!type) continue;
+        const blob = await item.getType(type);
+        const sig = await blobSig(blob);
+        if (sig === lastSig) return;
+        if (img && editor.hasShapes()) return;
+        lastSig = sig;
+        handleBlob(blob);
+        return;
       }
     } catch (err) {
-      // No permission, document not focused, or non-image clipboard — stay on empty state
+      // No permission yet, document not focused, or non-image clipboard — stay as is
+    } finally {
+      pasting = false;
     }
   }
+  window.MarkupAutoPaste = { setLastSig: s => { lastSig = s; }, blobSig };
 
-  if (autoPaste && document.hasFocus()) tryAutoPaste();
-  // Also fire when returning to an empty tab (e.g. right after taking a screenshot)
-  window.addEventListener('focus', () => {
-    if (autoPaste && !img) tryAutoPaste();
-  });
+  // Try on open (after focus settles), on returning to the tab/window, and on the
+  // first click/key (Safari only allows clipboard reads inside a user gesture).
+  const kick = () => setTimeout(tryAutoPaste, 50);
+  if (document.readyState === 'complete') kick(); else window.addEventListener('load', kick);
+  window.addEventListener('focus', kick);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kick(); });
+  window.addEventListener('pointerdown', () => { if (!img) tryAutoPaste(); }, true);
 
   onHistoryChange();
 })();
