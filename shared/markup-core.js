@@ -49,6 +49,7 @@ window.MarkupCore = (() => {
     let draggingSel = false;
     let dragStart = null;
     let dragMoved = false;
+    let lastGrab = null;       // shape grabbed (and not moved) by the latest press
     let cropDrag = null;       // in-progress crop marquee {x0,y0,x1,y1}
     let cropPending = null;    // marquee awaiting confirm {x,y,w,h,_ok,_cancel}
     let handDrawn = env.getSetting('handDrawn') === '1';
@@ -125,6 +126,10 @@ window.MarkupCore = (() => {
     // ---------- Pointer handling ----------
     overlay.addEventListener('pointerdown', e => {
       if (!env.canDraw() || e.button !== 0) return;
+      // Commit any open text box first so it never races the blur that
+      // follows this press.
+      closeTextEditor(true);
+      lastGrab = null;
       const p = env.toPoint(e);
 
       // pending crop: ✓ / ✕ badges take priority
@@ -166,6 +171,7 @@ window.MarkupCore = (() => {
         draggingSel = true;
         dragStart = p;
         dragMoved = false;
+        lastGrab = clone;
         drawSel();
         env.onHistoryChange();
         return;
@@ -250,6 +256,7 @@ window.MarkupCore = (() => {
       if (draggingSel) {
         draggingSel = false;
         if (!dragMoved) dropLastSnapshot();   // plain click: keep selection, drop the no-op snapshot
+        else lastGrab = null;
         env.onHistoryChange();
         return;
       }
@@ -266,6 +273,19 @@ window.MarkupCore = (() => {
       env.onHistoryChange();
     }
     overlay.addEventListener('pointerup', finishStroke);
+
+    // Double-clicking committed text reopens it for editing. Both presses of
+    // a double-click land on the shape and grab it without moving, so only
+    // fire when the latest press grabbed this same text shape.
+    overlay.addEventListener('dblclick', e => {
+      if (!env.canDraw() || tool === 'crop' || drawing || draggingSel) return;
+      const s = lastGrab;
+      lastGrab = null;
+      if (!s || s.tool !== 'text' || !shapes.includes(s)) return;
+      if (!hitShape(env.toPoint(e), s, 6 / env.uiScale())) return;
+      e.preventDefault();
+      editTextShape(s);
+    });
     overlay.addEventListener('pointercancel', () => {
       drawing = null;
       cropDrag = null;
@@ -457,7 +477,7 @@ window.MarkupCore = (() => {
     function hitTest(p) {
       const slack = 6 / env.uiScale();
       for (let i = shapes.length - 1; i >= 0; i--)
-        if (hitShape(p, shapes[i], slack)) return shapes[i];
+        if (shapes[i] !== editingShape && hitShape(p, shapes[i], slack)) return shapes[i];
       return null;
     }
 
@@ -514,10 +534,20 @@ window.MarkupCore = (() => {
     }
 
     let editor = null;
-    function openTextEditor(p) {
+    let editingShape = null;   // committed text hidden while it is re-edited
+
+    function editTextShape(s) {
+      if (selected) { selected = null; drawSel(); }
+      openTextEditor({ x: s.x, y: s.y }, s);
+      editingShape = s;
+      redrawBase();
+    }
+
+    function openTextEditor(p, existing) {
       closeTextEditor(true);
       const place = env.textPlacement(p);
-      const fontSize = FONTS[sizeKey];
+      const fontSize = existing ? existing.fontSize : FONTS[sizeKey];
+      const textColor = existing ? existing.color : color;
       editor = document.createElement('textarea');
       editor.id = 'textEditor';
       editor.spellcheck = false;
@@ -525,8 +555,9 @@ window.MarkupCore = (() => {
       st.left = (place.left - 5.5) + 'px';
       st.top = (place.top - 3.5) + 'px';
       st.font = textFont(fontSize * place.fontScale);
-      st.color = color;
-      st.caretColor = color;
+      st.color = textColor;
+      st.caretColor = textColor;
+      if (existing) editor.value = existing.text;
       env.textHost.appendChild(editor);
       const size = () => {
         const ctx = env.overlayCtx();
@@ -540,25 +571,46 @@ window.MarkupCore = (() => {
       editor.addEventListener('input', size);
       editor.addEventListener('keydown', e => {
         e.stopPropagation();
-        if (e.key === 'Escape') closeTextEditor(true);
+        if (e.key === 'Escape') closeTextEditor(!editingShape);   // Escape cancels a re-edit
+        else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); closeTextEditor(true); }
       });
       editor.addEventListener('blur', () => closeTextEditor(true));
-      editor._commit = { x: p.x, y: p.y, fontSize, color };
-      setTimeout(() => editor && editor.focus(), 0);
+      editor._commit = { x: p.x, y: p.y, fontSize, color: textColor };
+      const ed = editor;
+      setTimeout(() => {
+        if (editor !== ed) return;
+        ed.focus();
+        if (existing) ed.setSelectionRange(ed.value.length, ed.value.length);
+      }, 0);
     }
 
     function closeTextEditor(commit) {
       if (!editor) return;
       const ed = editor;
+      const orig = editingShape;
       editor = null;                       // guard against blur re-entry
+      editingShape = null;
       const text = ed.value.replace(/\s+$/, '');
+      ed.remove();
+      if (orig) {
+        // Re-edit: update the shape in place (same z-order) as one undo step;
+        // cancel or no change restores it untouched.
+        const i = shapes.indexOf(orig);
+        if (commit && i >= 0 && text !== orig.text) {
+          snapshot();
+          if (text) shapes[i] = { ...orig, text };
+          else shapes.splice(i, 1);
+          env.onHistoryChange();
+        }
+        redrawBase();
+        return;
+      }
       if (commit && text) {
         snapshot();
         shapes.push({ tool: 'text', ...ed._commit, text });
         redrawBase();
         env.onHistoryChange();
       }
-      ed.remove();
     }
 
     // ---------- Hand-drawn (sketchy) rendering ----------
@@ -859,7 +911,7 @@ window.MarkupCore = (() => {
     function redrawBase() {
       env.clearBase();
       const ctx = env.baseCtx();
-      shapes.forEach(s => renderShape(ctx, s));
+      shapes.forEach(s => { if (s !== editingShape) renderShape(ctx, s); });
     }
 
     // ---------- Undo / redo ----------
