@@ -125,6 +125,38 @@ function check(name, cond) {
     document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
   check('undo removes Escape-committed text on page', afterEscapeUndo === beforeEscapeText);
 
+  // Double-click committed text to edit it; Escape cancels, one undo reverts a commit.
+  const extBase = () => page.evaluate(() =>
+    document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
+  const editorFocused = () => page.waitForFunction(() => {
+    const r = document.getElementById('__markupHost').shadowRoot;
+    return r.activeElement && r.activeElement.id === 'textEditor';
+  });
+  const withPageText = await extBase();
+  await page.mouse.dblclick(220, 312);
+  await page.waitForSelector('#textEditor');
+  check('double-click opens committed text for editing on page',
+    await page.inputValue('#textEditor') === 'On the page!\nSecond line');
+  check('text being edited is hidden on page', await extBase() !== withPageText);
+  await editorFocused();
+  await page.keyboard.type(' more');
+  await page.keyboard.press('Escape');
+  check('Escape cancels a text edit on page',
+    await page.locator('#textEditor').count() === 0 && await extBase() === withPageText);
+  check('Escape in the text editor keeps markup mode', await page.locator('#__markupHost').count() === 1);
+  await page.mouse.dblclick(220, 312);
+  await page.waitForSelector('#textEditor');
+  await editorFocused();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('Edited on page');
+  await page.keyboard.press('Control+Enter');
+  const editedPage = await extBase();
+  check('Ctrl+Enter commits the edited text on page',
+    await page.locator('#textEditor').count() === 0 && editedPage !== withPageText);
+  await page.screenshot({ path: OUT + '/ext-3b-edited-text.png' });
+  await page.keyboard.press('Meta+z');
+  check('one undo restores the original text on page', await extBase() === withPageText);
+
   // Undo works (removes the earlier text)
   await page.keyboard.press('Meta+z');
 

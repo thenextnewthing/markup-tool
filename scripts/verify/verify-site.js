@@ -196,6 +196,49 @@ const baseSize = p => p.evaluate(() => {
   await page.keyboard.press('Meta+z');
   check('undo removes Escape-committed text', await baseData(page) === beforeEscapeText);
 
+  // Double-click committed text to edit it in place.
+  const withText = await baseData(page);
+  await page.click('.tool-btn[data-tool="pen"]');
+  await page.mouse.dblclick(box.x + 600, box.y + 312);
+  await page.waitForSelector('#textEditor');
+  check('double-click opens committed text for editing',
+    await page.inputValue('#textEditor') === 'Halo text\non two lines');
+  check('text being edited is hidden from the base canvas', await baseData(page) !== withText);
+  await page.locator('#canvasWrap').screenshot({ path: OUT + '/site-1b-editing-text.png' });
+  await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'textEditor');
+  await page.keyboard.type(' more');
+  await page.keyboard.press('Escape');
+  check('Escape cancels a text edit unchanged',
+    await page.locator('#textEditor').count() === 0 && await baseData(page) === withText);
+  await page.click('.tool-btn[data-tool="text"]');
+  await page.mouse.dblclick(box.x + 600, box.y + 312);
+  await page.waitForSelector('#textEditor');
+  await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'textEditor');
+  check('text tool double-click edits instead of adding a new box',
+    await page.locator('#textEditor').count() === 1 && await page.inputValue('#textEditor') === 'Halo text\non two lines');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('Edited');
+  await page.locator('#textEditor').blur();
+  const edited = await baseData(page);
+  check('edited text commits on blur', await page.locator('#textEditor').count() === 0 && edited !== withText);
+  await page.locator('#canvasWrap').screenshot({ path: OUT + '/site-1c-edited-text.png' });
+  await page.mouse.dblclick(box.x + 590, box.y + 312);
+  await page.waitForSelector('#textEditor');
+  check('re-editing shows the edited text', await page.inputValue('#textEditor') === 'Edited');
+  await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'textEditor');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+z');
+  check('one undo restores the original text', await baseData(page) === withText);
+  await page.keyboard.press('Meta+Shift+z');
+  check('redo re-applies the edit', await baseData(page) === edited);
+  await page.keyboard.press('Meta+z');
+  await page.click('.tool-btn[data-tool="pen"]');
+  await page.mouse.dblclick(box.x + 900, box.y + 560);
+  check('pen double-click on blank canvas opens no editor', await page.locator('#textEditor').count() === 0);
+  // the first press drops a dot; the second grabs that dot rather than adding another
+  await page.keyboard.press('Meta+z');
+  check('text edit tests restored the canvas', await baseData(page) === withText);
+
   const afterDraw = await baseData(page);
   check('7 shapes drawn (canvas changed)', afterDraw.length > 20000);
   await page.locator('#canvasWrap').screenshot({ path: OUT + '/site-1-all-tools.png' });
