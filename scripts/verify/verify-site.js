@@ -196,6 +196,46 @@ const baseSize = p => p.evaluate(() => {
   await page.keyboard.press('Meta+z');
   check('undo removes Escape-committed text', await baseData(page) === beforeEscapeText);
 
+  // Double-click a committed text shape to edit it in place
+  const beforeEdit = await baseData(page);
+  await page.mouse.dblclick(box.x + 600, box.y + 312);
+  await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
+  check('double-click reopens committed text with its content',
+    await page.inputValue('#textEditor') === 'Halo text\non two lines');
+  check('edited text is lifted off the canvas while editing', await baseData(page) !== beforeEdit);
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('Edited text');
+  await page.locator('#textEditor').blur();
+  const edited = await baseData(page);
+  check('edit commits on blur', await page.locator('#textEditor').count() === 0 && edited !== beforeEdit);
+  await page.keyboard.press('Meta+z');
+  check('one undo restores the original text', await baseData(page) === beforeEdit);
+  await page.keyboard.press('Meta+Shift+z');
+  check('redo reapplies the edit', await baseData(page) === edited);
+
+  // Escape while re-editing restores the shape unchanged (pen tool active)
+  await page.click('.tool-btn[data-tool="pen"]');
+  await page.mouse.dblclick(box.x + 600, box.y + 312);
+  await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
+  check('double-click edits text with the pen tool too', await page.inputValue('#textEditor') === 'Edited text');
+  await page.keyboard.type(' discarded');
+  await page.keyboard.press('Escape');
+  check('Escape cancels a re-edit',
+    await page.locator('#textEditor').count() === 0 && await baseData(page) === edited);
+  await page.keyboard.press('Meta+z');
+  check('cancelled re-edit adds no history step', await baseData(page) === beforeEdit);
+
+  // Double-clicking blank canvas with the pen still draws, never opens an editor
+  await page.mouse.dblclick(box.x + 900, box.y + 80);
+  check('double-click on blank canvas opens no editor', await page.locator('#textEditor').count() === 0);
+  check('double-click on blank canvas still draws a pen dot', await baseData(page) !== beforeEdit);
+  // the second press lands on the fresh dot and just grabs it
+  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('Escape');
+  check('pen dot undoes cleanly', await baseData(page) === beforeEdit);
+
   const afterDraw = await baseData(page);
   check('7 shapes drawn (canvas changed)', afterDraw.length > 20000);
   await page.locator('#canvasWrap').screenshot({ path: OUT + '/site-1-all-tools.png' });

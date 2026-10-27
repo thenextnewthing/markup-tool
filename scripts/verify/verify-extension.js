@@ -125,6 +125,29 @@ function check(name, cond) {
     document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
   check('undo removes Escape-committed text on page', afterEscapeUndo === beforeEscapeText);
 
+  // Double-click the committed text to edit it; Escape-cancel; undo the edit
+  const shot = () => page.evaluate(() =>
+    document.getElementById('__markupHost').shadowRoot.querySelector('canvas').toDataURL());
+  const beforeEdit = await shot();
+  await page.mouse.dblclick(230, 315);
+  await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
+  check('double-click reopens text on page',
+    await page.inputValue('#textEditor') === 'On the page!\nSecond line');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('Edited on page');
+  await page.locator('#textEditor').blur();
+  const editedOnPage = await shot();
+  check('edit commits on page', await page.locator('#textEditor').count() === 0 && editedOnPage !== beforeEdit);
+  await page.mouse.dblclick(230, 315);
+  await page.waitForSelector('#textEditor');
+  await page.locator('#textEditor').focus();
+  await page.keyboard.type(' nope');
+  await page.keyboard.press('Escape');
+  check('Escape cancels re-edit on page', await shot() === editedOnPage);
+  await page.keyboard.press('Meta+z');
+  check('undo restores pre-edit text on page', await shot() === beforeEdit);
+
   // Undo works (removes the earlier text)
   await page.keyboard.press('Meta+z');
 
