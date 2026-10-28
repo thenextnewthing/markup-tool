@@ -264,6 +264,24 @@ const baseSize = p => p.evaluate(() => {
   await page.keyboard.press('Escape');
   check('undo(move+delete) restores pixels', await baseData(page) === afterDraw);
 
+  // A pointerup that never arrives must not leave a grabbed shape stuck to the cursor
+  const ghostMove = (x, y) => page.evaluate(({ x, y }) => {
+    document.getElementById('overlay').dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, pointerId: 1, pointerType: 'mouse', buttons: 0, clientX: x, clientY: y }));
+  }, { x, y });
+  await page.mouse.move(box.x + 60, box.y + 130);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 80, box.y + 130);
+  await ghostMove(box.x + 90, box.y + 130);
+  const afterLostUp = await baseData(page);
+  check('lost pointerup ends the drag', afterLostUp !== afterDraw);
+  await ghostMove(box.x + 300, box.y + 300);
+  check('shape no longer follows the cursor after a lost pointerup', await baseData(page) === afterLostUp);
+  await page.mouse.up();
+  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('Escape');
+  check('lost-pointerup move undoes in one step', await baseData(page) === afterDraw);
+
   // Hand-drawn via gear
   await page.hover('#gearBtn');
   await page.check('#handDrawnCb');

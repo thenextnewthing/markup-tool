@@ -129,6 +129,7 @@ window.MarkupCore = (() => {
       // Commit any open text box first so it never races the blur that
       // follows this press.
       closeTextEditor(true);
+      if (cropDrag || draggingSel || drawing) finishStroke();
       lastGrab = null;
       const p = env.toPoint(e);
 
@@ -199,6 +200,13 @@ window.MarkupCore = (() => {
     });
 
     overlay.addEventListener('pointermove', e => {
+      // The button is already up but the pointerup never reached us (released
+      // over a context menu, outside the window, during an OS gesture...):
+      // end the gesture instead of letting the shape follow the cursor.
+      if ((cropDrag || draggingSel || drawing) && !(e.buttons & 1)) {
+        finishStroke();
+        return;
+      }
       if (cropDrag) {
         const p = env.toPoint(e);
         cropDrag.x1 = p.x;
@@ -273,6 +281,13 @@ window.MarkupCore = (() => {
       env.onHistoryChange();
     }
     overlay.addEventListener('pointerup', finishStroke);
+    overlay.addEventListener('lostpointercapture', () => {
+      if (cropDrag || draggingSel || drawing) finishStroke();
+    });
+    window.addEventListener('blur', onWindowBlur);
+    function onWindowBlur() {
+      if (cropDrag || draggingSel || drawing) finishStroke();
+    }
 
     // Double-clicking committed text reopens it for editing. Both presses of
     // a double-click land on the shape and grab it without moving, so only
@@ -1019,6 +1034,7 @@ window.MarkupCore = (() => {
     function destroy() {
       window.removeEventListener('keydown', onKeydown, !!env.exclusiveKeys);
       window.removeEventListener('keyup', onKeyup, !!env.exclusiveKeys);
+      window.removeEventListener('blur', onWindowBlur);
       closeTextEditor(false);
     }
 
